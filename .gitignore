@@ -1,0 +1,36 @@
+# 忽略LaTeX build files
+*.aux
+*.bbl
+*.blg
+*.brf
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.out
+*.toc
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.ist
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.synctex(busy)
+*.pdfsync
+*.nav
+*.snm
+*.vrb
+
+# 忽略最终生成的 PDF（如果你希望通过 Git 分发 PDF，可以删掉这一行）
+*.pdf
+
+# 忽略操作系统和编辑器的临时文件
+__pycache__/
+.vscode/
+.idea/

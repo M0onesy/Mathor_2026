@@ -1,0 +1,271 @@
+% !TeX program = xelatex
+% !TeX encoding = UTF-8
+\documentclass{MathorCupmodeling}
+\usepackage{zhlipsum,mwe}
+\bianhao{MC3141592}
+\tihao{（A/B/C/D）}
+\timu{MathorCup 杯 \LaTeX{} 模板写作示例}
+\keyword{content；content；content}
+\begin{document}
+	\begin{abstract}
+		请使用 \TeX Live 2023，XeLaTeX 编译，请选用支持 UTF­-8 编码的编辑器。
+
+		使用者需要有一定的 \LaTeX{} 的使用经验，至少要会使用常用宏包的一些功能，比如参考文献，数学公式，图片使用，列表环境等等。模板已经添加了常用的宏包，无需用户再额外添加。
+
+		本模板
+		\begin{itemize}
+			\item 定义了几个宏 \lstinline|\def\ee{\mathrm{e}},\def\ii{\mathrm{i}},\def\leq{\leqslant},\def\geq{\geqslant}| 方便使用；
+			\item 图片应放在 \lstinline|figure| 文件夹中；
+			\item 定制了 matlab 和 python 代码环境，使用方法：\lstinline|\begin{matlab} content \end{matlab}| 和 \lstinline|\begin{python} content \end{python}|；
+			\item 加载了 \lstinline|cleveref| 宏包，使用方法：\lstinline|\cref{label}|。
+		\end{itemize}
+		其它的就是跟普通的 \lstinline|ctexart| 使用方法一样。
+	
+		欢迎到 \url{https://ask.latexstudio.net/} 或者 QQ 群 200392395  提问，注意提供 MWE。
+		
+		
+		
+字数尽量控制在 300$\sim $600之间，需控制在一页；摘要中必须将具体方法、模型和所得结果写出来；摘要要求“总分总”，段开头可用“针对问题1，针对问题2，针对问题3..”或者“首先，然后，其次，最后”等词语进行有逻辑的论述。摘要是重中之重，必须认真严谨！
+	\end{abstract}
+	\tableofcontents\newpage
+
+\section{问题重述}
+\subsection{引言}
+可以自己组织词句对问题进行描述，主要数据可以直接复制，对所提出的问题部分基本原样复制。篇幅建议不要超过一页。大部分文字提炼自原题。
+
+\subsection{要解决的具体问题}
+\begin{enumerate}
+  \item \textcolor{red}{问题一：问题一的重述，重述语言简洁明了，突出模型中第一个要解决的问题，突出核心。}
+  \item \textcolor{red}{问题二：问题二的重述。}
+  \item \textcolor{red}{问题三：问题三的重述。}
+  \item \textcolor{red}{问题四：问题四的重述。}
+\end{enumerate}
+
+\section{问题分析}
+
+\textcolor{red}{主要是表达对题目的理解，特别是对附件的数据进行必要分析、描述（一般都有数据附件），这是需要提到分析数据的方法、理由。如果有多个小问题，可以对每个小问题进行分别分析。问题分析中不给出结果，结果在摘要中给出。
+（假设有2个问题）}
+
+\subsection{问题一的分析}
+
+ \textcolor{red}{对问题1研究的意义的分析。
+问题1属于$\cdots\cdots$数学问题，对于解决此类问题一般数学方法的分析。
+对附件中所给数据特点的分析。
+对问题1所要求的结果进行分析。
+由于以上原因，我们可以将首先建立一个$\cdots\cdots$的数学模型I,然后将建立一个$\cdots\cdots$的模型II,$\cdots\cdots$对结果分别进行预测，并将结果进行比较.
+}
+
+
+\subsection{问题二的分析}
+ \textcolor{red}{对问题2研究的意义的分析。
+问题2属于$\cdots\cdots$数学问题，对于解决此类问题一般数学方法的分析。
+对附件中所给数据特点的分析。
+对问题2所要求的结果进行分析。
+由于以上原因，我们可以将首先建立一个$\cdots\cdots$的数学模型I,然后将建立一个$\cdots\cdots$的模型II,$\cdots\cdots$对结果分别进行预测，并将结果进行比较.
+}
+
+ $\cdots\cdots$
+
+
+\section{模型假设}
+\begin{enumerate}
+  \item 模型的假设要结合整个模型的建立作出的一个合理的假设，不能过于理想化，要尽量切合实际问题的处理来做出相应的合理的假设；
+  \item 模型假设二；
+  \item 模型假设三；
+\end{enumerate}
+
+\section{名词解释与符号说明}
+
+\textcolor{red}{一般都会有符号解释和说明，对于一些装有的专有名词解释，需要的时候就需要对其进行解释与说明，我们以下面几个例子为例。}
+
+\subsection{名词解释与说明}
+\begin{enumerate}
+\item \textbf{理论通行能力：}理论通行能力是指每一条车道~(或每一条道路) 在单位时间内
+能够通过的最大交通量。
+
+
+\item \textbf{修正通行能力：}在具体条件下，通过修正系数对理论通行能力修正后得到的单
+位时间内所能通过的最大交通量。
+
+\end{enumerate}
+\subsection{主要符号与说明}
+
+%tab1
+\begin{table}[h!]
+  \centering
+  \small
+  \begin{tabular}{p{60pt}<{\centering}|p{60pt}<{\centering}p{180pt}<{\raggedright}}
+   \hline
+    序号 & 符号 & 符号说明 \\
+   \hline
+    1 & $\nu$ & 行车速度（km/h） \\
+    2 & t$_{\min}$ & 车头最小时距（s） \\
+    3 & $J_{\rm a}$ & 车头最小间隔（m） \\
+    4 & $J_{\rm z}$ & 车辆平均长度（m） \\
+    5 & $J_{\gamma}$ & 车辆的制动距离（m） \\
+    6 & $J_{\max}$ & 司机在反应时间内车辆行驶的距离（m） \\
+    7 & $A_{\max}$ & 最大交通量 \\
+    8 & $\alpha_{1}$ & 车道数修正系数 \\
+    9 & $\alpha_{2}$ & 车道宽度和侧向净宽修正系数 \\
+    10 & $\alpha_{3}$ & 大型车修正系数 \\
+    11 & $\alpha_{4}$ & 驾驶员技术水平修正系数 \\
+    12 & $K_{j}$ & 阻塞密度 \\
+    13 & $\nu_{f}$ & 自由车速 \\
+    $\cdots$ & $\cdots$\\
+    \hline
+  \end{tabular}
+  %\caption{符号与说明}
+  \label{symbol}
+\end{table}
+
+\section{模型的建立与求解}
+
+数据的预处理：
+1. $\cdots\cdots$数据全部缺失，不予考虑。
+2. 对数据测试的特点，如周期等进行分析。
+3. $\cdots\cdots$数据残缺，根据数据挖掘等理论根据$\cdots\cdots$变化趋势进行补充。
+4. 对数据特点（后面将会用到的特征）进行提取。
+   用$\cdots\cdots$软件聚类分析和各个不同问题的需要，采得$\cdots\cdots$组采样，每组5-8个采样值。将采样所对应的特征值进行列表或图示。
+根据数据特点，对总体和个体的特点进行比较，以表格或图示方式显示。
+
+
+\subsection{问题一的分析和求解}
+
+\subsubsection{***模型的建立}
+
+模型建立的内容要点如下：
+
+模型的主要类别：
+
+几种常见的建模目的：
+
+建模过程常见的几个要点：
+
+模型的基本要求：
+
+模型选择要点：
+
+加分项（能在规定时间内做完后还有足够时间的再考虑加分项）：
+
+1、鼓励创新。在能解决问题的基础上，对经典模型进行改进，欣赏独树一帜、有创新性的模型，但要合理。
+
+2、对于同一问题使用两个或以上合理模型进行求解。避免出现单纯罗列模型，又不做对比和评价的现象。
+ 
+ 
+
+	\section{模型的建立与求解}
+	\zhlipsum*[10]
+	\subsection{模型的准备}
+	\zhlipsum*[11]
+	\subsection{模型一的建立}
+	效果见\cref{fig:1}。
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics{example-image-plain.pdf}
+		\caption{content}\label{fig:1}
+	\end{figure}
+	\subsection{模型二的建立}
+	结果见\cref{tab:1}。
+	\begin{table}[htbp]
+		\centering
+		\caption{content}\label{tab:1}
+		\begin{tabularx}{0.7\textwidth}{c@{\hspace{1pc}}|@{\hspace{2pc}}X}
+		\Xhline{0.08em}
+		符号 & \multicolumn{1}{c}{符号说明}\\
+		\Xhline{0.05em}
+		$\delta$ & 赤纬角\\
+		$\beta$ & 经度\\
+		$\alpha$ & 纬度\\
+		$r$ & 地球半径\\
+		$\gamma$ & 太阳光与杆所成的夹角\\
+		$l$ & 杆的长度\\
+		$l_{y}$ & 杆的影子长度\\
+		$\vec{x}_{1},\vec{y}_{1},\vec{z}_{1}$ & 由杆的位置所生成的切平面的正交基\\
+		$\vec{\hat{x}}_{1},\vec{\hat{y}}_{1},\vec{\hat{z}}_{1}$ & 由杆的位置所生成的切平面的单位正交基\\
+		$\theta$ & 影子与北方的夹角\\
+		$l_{y}(i)$ & 编号为 $i$ 的数据对应的影子长度\\
+		$\theta_{i}$ & 编号为 $i$ 的数据对应的影子角度\\			\Xhline{0.08em}
+		\end{tabularx}
+	\end{table}
+	\subsection{模型三的建立}
+	\zhlipsum*[14]
+
+	\section{模型的检验}
+	\zhlipsum*[15]
+
+	\section{模型的评价与改进}
+	\zhlipsum*[16]
+	\subsection{模型的优点}
+	\zhlipsum*[17]
+	\subsection{模型的缺点}
+	\zhlipsum*[18]
+	\subsection{模型的改进}
+	\zhlipsum*[19]\cite{label}
+
+	\phantomsection
+	\addcontentsline{toc}{section}{参考文献}
+	\begin{thebibliography}{99}
+	\bibitem{label}https://www.latexstudio.net/
+	\end{thebibliography}
+
+	\newpage
+	\appendix
+	\ctexset{section={
+		format={\zihao{-4}\heiti\raggedright}
+	}}
+	\begin{center}
+		\heiti\zihao{4} 附\hspace{1pc}录
+	\end{center}
+	\section{问题一的 MATLAB 代码}
+	\begin{matlab}
+clc,clear
+%第七题
+R71 = 1;
+R72 = 2;
+T7 = 1;
+K7 = 1;
+N7=10^5;
+G71=tf(R72,R71);
+G72=tf(1,[T7 1]);
+G73=tf(1,[T7 0]);
+G74=tf([N7*T7 0],[T7 N7]);
+G75=tf([N7*K7*T7 N7*K7],[T7 N7]);
+G76=tf([K7*T7 K7],[T7 0]);
+
+subplot(2,3,1)
+step(G71)
+xlabel('$t$','interpreter','latex', 'FontSize', 12);
+ylabel('$y$','interpreter','latex', 'FontSize', 12);
+title('比例环节');
+
+subplot(2,3,2)
+step(G72)
+xlabel('$t$','interpreter','latex', 'FontSize', 12);
+ylabel('$y$','interpreter','latex', 'FontSize', 12);
+title('惯性环节');
+
+subplot(2,3,3)
+step(G73)
+xlabel('$t$','interpreter','latex', 'FontSize', 12);
+ylabel('$y$','interpreter','latex', 'FontSize', 12);
+title('积分环节');
+
+subplot(2,3,4)
+step(G74,10^-3)
+xlabel('$t$','interpreter','latex', 'FontSize', 12);
+ylabel('$y$','interpreter','latex', 'FontSize', 12);
+title('微分环节');
+
+subplot(2,3,5)
+step(G75,10^-3)
+xlabel('$t$','interpreter','latex', 'FontSize', 12);
+ylabel('$y$','interpreter','latex', 'FontSize', 12);
+title('比例微分环节');
+
+subplot(2,3,6)
+step(G76)
+xlabel('$t$','interpreter','latex', 'FontSize', 12);
+ylabel('$y$','interpreter','latex', 'FontSize', 12);
+title('比例积分环节');
+	\end{matlab}
+\end{document} 
