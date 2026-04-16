@@ -43,10 +43,10 @@ git init
 ```
 4. 将云端的github项目仓库pull到本地git仓库，此步同时完成项目同步与建立关联，输入
 ```Bash
-git remote add origin https://github.com/M0onesy/CEM_MCM_2026.git  
+git remote add origin https://github.com/M0onesy/Mathor_2026.git  
 #关联到咱的项目（git可能此时要求你登录github，注意查看浏览器确认授权，别卡在这里）
 ```
-仓库地址：https://github.com/M0onesy/CEM_MCM_2026.git
+仓库地址：https://github.com/M0onesy/Mathor_2026.git
 
 
 ## 四 、标准 Git 命令行开发操作流程。
