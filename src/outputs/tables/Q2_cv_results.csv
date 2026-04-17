@@ -1,4 +1,4 @@
-﻿,AUC_mean,AUC_std,Acc,F1
-Logistic,0.9737,0.0081,0.901,0.9351
-RandomForest,0.9999,0.0002,0.998,0.9987
+﻿,AUC,AUC_std,Acc,F1
+Logistic,0.9728,0.0104,0.911,0.9418
+RandomForest,1.0,0.0001,0.998,0.9987
 GBDT,0.9928,0.0096,0.997,0.9981

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -26,13 +24,12 @@ def ensure_output_dirs() -> None:
 
 def configure_plotting() -> None:
     matplotlib.rcParams["font.sans-serif"] = [
+        "DejaVu Sans",
         "SimHei",
         "Microsoft YaHei",
         "Arial Unicode MS",
-        "DejaVu Sans",
     ]
     matplotlib.rcParams["axes.unicode_minus"] = False
-    plt.style.use("seaborn-v0_8-whitegrid")
 
 
 def set_random_seed(seed: int = RANDOM_SEED) -> None:
@@ -64,30 +61,3 @@ def figure_path(name: str) -> Path:
 def table_path(name: str) -> Path:
     ensure_output_dirs()
     return TABLE_DIR / name
-
-
-def save_csv(df: pd.DataFrame, name: str, index: bool = True) -> Path:
-    path = table_path(name)
-    df.to_csv(path, index=index, encoding="utf-8-sig")
-    return path
-
-
-def save_text(text: str, name: str) -> Path:
-    path = table_path(name)
-    path.write_text(text, encoding="utf-8")
-    return path
-
-
-def save_figure(fig: plt.Figure, name: str, dpi: int = 150) -> Path:
-    path = figure_path(name)
-    fig.tight_layout()
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
-    plt.close(fig)
-    return path
-
-
-def copy_to_tables(source: Path, dest_name: str | None = None) -> Path:
-    ensure_output_dirs()
-    destination = table_path(dest_name or source.name)
-    shutil.copy2(source, destination)
-    return destination

@@ -1,369 +1,227 @@
 """
-问题2：高血脂症低/中/高三级风险预警模型
+问题2：高血脂症三级风险预警模型（修订版）
+
+构建 "规则层 + 模型层" 融合预警体系：
+  - 机器学习模块：L2-正则化 Logistic 回归(主) + RF/GBDT(对照)
+  - 规则层：临床异常项数 + 痰湿积分 + 活动评分 + BMI
+  - 融合：R = max(R_rule, R_model)
 """
-
-from __future__ import annotations
-
-import warnings
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, roc_curve
+import numpy as np, pandas as pd, warnings
+warnings.filterwarnings('ignore')
 from sklearn.model_selection import StratifiedKFold
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import (roc_auc_score, accuracy_score, f1_score, roc_curve)
 from sklearn.tree import DecisionTreeClassifier, export_text, plot_tree
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+from common import configure_plotting, figure_path, load_data, set_random_seed, table_path
 
-from common import configure_plotting, load_data, save_csv, save_figure, save_text, set_random_seed
+configure_plotting()
+set_random_seed()
 
+df = load_data()
 
-warnings.filterwarnings("ignore")
+def count_abnormal(r):
+    c=0
+    if r['TC（总胆固醇）']>6.2: c+=1
+    if r['TG（甘油三酯）']>1.7: c+=1
+    if r['LDL-C（低密度脂蛋白）']>3.1: c+=1
+    if r['HDL-C（高密度脂蛋白）']<1.04: c+=1
+    return c
+df['血脂异常项数'] = df.apply(count_abnormal, axis=1)
 
+# 特征：血常规(7) + ADL子项(5) + IADL子项(5) + 痰湿积分(1) = 18 个
+FEATS = ['TC（总胆固醇）','TG（甘油三酯）','LDL-C（低密度脂蛋白）','HDL-C（高密度脂蛋白）',
+         '空腹血糖','血尿酸','BMI',
+         'ADL用厕','ADL吃饭','ADL步行','ADL穿衣','ADL洗澡',
+         'IADL购物','IADL做饭','IADL理财','IADL交通','IADL服药',
+         '痰湿质']
+X = df[FEATS].values
+y = df['高血脂症二分类标签'].values
+Xs = StandardScaler().fit_transform(X)
 
-def count_abnormal(row: pd.Series) -> int:
-    count = 0
-    if row["TC（总胆固醇）"] > 6.2:
-        count += 1
-    if row["TG（甘油三酯）"] > 1.7:
-        count += 1
-    if row["LDL-C（低密度脂蛋白）"] > 3.1:
-        count += 1
-    if row["HDL-C（高密度脂蛋白）"] < 1.04:
-        count += 1
-    return count
+models = {
+    'Logistic': lambda: LogisticRegression(max_iter=2000, class_weight='balanced', C=1.0, random_state=42),
+    'RandomForest': lambda: RandomForestClassifier(n_estimators=500, max_depth=8,
+                                                    min_samples_leaf=5,
+                                                    class_weight='balanced', random_state=42, n_jobs=-1),
+    'GBDT': lambda: GradientBoostingClassifier(n_estimators=300, max_depth=4,
+                                                learning_rate=0.05, random_state=42)
+}
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+cv = {}
+for name, builder in models.items():
+    aucs, accs, f1s = [], [], []
+    for tr, te in skf.split(Xs, y):
+        m = builder()
+        Xtr, Xte = (Xs[tr], Xs[te]) if name=='Logistic' else (X[tr], X[te])
+        m.fit(Xtr, y[tr])
+        pr = m.predict_proba(Xte)[:,1]
+        yh = (pr>=0.5).astype(int)
+        aucs.append(roc_auc_score(y[te], pr))
+        accs.append(accuracy_score(y[te], yh))
+        f1s.append(f1_score(y[te], yh))
+    cv[name] = {'AUC': np.mean(aucs), 'AUC_std': np.std(aucs),
+                'Acc': np.mean(accs), 'F1': np.mean(f1s)}
+df_cv = pd.DataFrame(cv).T.round(4)
+print("="*60); print("5-Fold CV Results:"); print("="*60)
+print(df_cv)
+df_cv.to_csv(table_path('Q2_cv_results.csv'), encoding='utf-8-sig')
 
+# 主模型: Logistic (概率光滑, 利于分层)
+best = LogisticRegression(max_iter=2000, class_weight='balanced', C=1.0, random_state=42)
+best.fit(Xs, y)
+proba = best.predict_proba(Xs)[:, 1]
+df['预测发病概率'] = proba
+print(f"\nLogistic 预测概率分布: min={proba.min():.4f}, median={np.median(proba):.4f}, max={proba.max():.4f}")
 
-def rule_risk(row: pd.Series) -> int:
-    abnormal_count = row["血脂异常项数"]
-    phlegm_score = row["痰湿质"]
-    activity_score = row["活动量表总分（ADL总分+IADL总分）"]
-    bmi = row["BMI"]
-    if abnormal_count >= 2:
-        return 3
-    if abnormal_count >= 1 and (phlegm_score >= 60 or bmi >= 24):
-        return 3
-    if phlegm_score >= 80 and activity_score < 40:
-        return 3
-    if abnormal_count == 1:
-        return 2
-    if phlegm_score >= 60:
-        return 2
-    if 40 <= phlegm_score < 60 and activity_score < 50:
-        return 2
+coef = pd.Series(np.abs(best.coef_[0]), index=FEATS).sort_values(ascending=False)
+print("\n==== Logistic |β| Top10 (标准化) ====")
+print(coef.head(10).round(4))
+coef.to_csv(table_path('Q2_feature_importance.csv'), encoding='utf-8-sig')
+
+# 规则层
+def rule_risk(r):
+    n = r['血脂异常项数']; phl = r['痰湿质']
+    act = r['活动量表总分（ADL总分+IADL总分）']; bmi = r['BMI']
+    if n >= 2: return 3
+    if n >= 1 and (phl >= 60 or bmi >= 24): return 3
+    if phl >= 80 and act < 40: return 3
+    if n == 1: return 2
+    if phl >= 60: return 2
+    if 40 <= phl < 60 and act < 50: return 2
     return 1
+df['规则风险'] = df.apply(rule_risk, axis=1)
 
-
-def model_risk(probability: float, q33: float, q67: float) -> int:
-    if probability >= q67:
-        return 3
-    if probability >= q33:
-        return 2
+# 模型层: 分位映射
+q33, q67 = np.quantile(proba, [0.33, 0.67])
+print(f"\n模型概率分位: q33={q33:.4f}, q67={q67:.4f}")
+def model_risk(p):
+    if p>=q67: return 3
+    if p>=q33: return 2
     return 1
+df['模型风险'] = df['预测发病概率'].apply(model_risk)
 
+# 融合
+df['最终风险'] = np.maximum(df['规则风险'], df['模型风险'])
+df['风险等级'] = df['最终风险'].map({1:'低风险', 2:'中风险', 3:'高风险'})
 
-def main() -> None:
-    configure_plotting()
-    set_random_seed()
-    df = load_data()
+print("\n==== 三级风险分布 ====")
+print(df['风险等级'].value_counts())
+print("\n各风险层实际发病率:")
+print(df.groupby('风险等级', observed=True)['高血脂症二分类标签'].agg(['count','mean']).round(3))
+print("\n诊断x风险交叉表:")
+print(pd.crosstab(df['高血脂症二分类标签'], df['风险等级']))
+print("\n各风险层特征:")
+print(df.groupby('风险等级', observed=True).agg(
+    血脂异常项数=('血脂异常项数','mean'),
+    痰湿积分=('痰湿质','mean'),
+    活动量表总分=('活动量表总分（ADL总分+IADL总分）','mean'),
+    TG=('TG（甘油三酯）','mean'),
+    TC=('TC（总胆固醇）','mean'),
+    BMI=('BMI','mean'),
+    年龄组=('年龄组','mean'),
+    预测概率=('预测发病概率','mean')).round(3))
 
-    df["血脂异常项数"] = df.apply(count_abnormal, axis=1)
+# 痰湿体质分析
+dft = df[df['体质标签']==5].copy()
+print(f"\n[痰湿体质 {len(dft)} 人]  高={int((dft['最终风险']==3).sum())} 中={int((dft['最终风险']==2).sum())} 低={int((dft['最终风险']==1).sum())}")
 
-    features = [
-        "TG（甘油三酯）",
-        "TC（总胆固醇）",
-        "LDL-C（低密度脂蛋白）",
-        "HDL-C（高密度脂蛋白）",
-        "血尿酸",
-        "BMI",
-        "空腹血糖",
-        "痰湿质",
-        "湿热质",
-        "血瘀质",
-        "气虚质",
-        "阳虚质",
-        "阴虚质",
-        "平和质",
-        "气郁质",
-        "特禀质",
-        "活动量表总分（ADL总分+IADL总分）",
-        "ADL总分",
-        "IADL总分",
-        "年龄组",
-        "性别",
-        "吸烟史",
-        "饮酒史",
-    ]
-    x = df[features].to_numpy()
-    y = df["高血脂症二分类标签"].to_numpy()
-    x_scaled = StandardScaler().fit_transform(x)
+tree_feats = ['痰湿质','活动量表总分（ADL总分+IADL总分）','TG（甘油三酯）','TC（总胆固醇）',
+              'LDL-C（低密度脂蛋白）','HDL-C（高密度脂蛋白）','BMI','血尿酸','年龄组']
+Xt = dft[tree_feats].values
+yt = (dft['最终风险']==3).astype(int).values
+tree = DecisionTreeClassifier(max_depth=4, min_samples_leaf=15, random_state=42)
+tree.fit(Xt, yt)
+rules = export_text(tree, feature_names=tree_feats)
+print("\n痰湿体质高风险决策树规则:")
+print(rules)
+table_path('Q2_tree_rules.txt').write_text(rules, encoding='utf-8')
 
-    models = {
-        "Logistic": lambda: LogisticRegression(
-            max_iter=2000,
-            class_weight="balanced",
-            C=1.0,
-            random_state=42,
-        ),
-        "RandomForest": lambda: RandomForestClassifier(
-            n_estimators=500,
-            max_depth=8,
-            min_samples_leaf=5,
-            class_weight="balanced",
-            random_state=42,
-            n_jobs=-1,
-        ),
-        "GBDT": lambda: GradientBoostingClassifier(
-            n_estimators=300,
-            max_depth=4,
-            learning_rate=0.05,
-            random_state=42,
-        ),
-    }
+combos = [
+    ('痰湿积分>=60 & 活动量表<40', (dft['痰湿质']>=60) & (dft['活动量表总分（ADL总分+IADL总分）']<40)),
+    ('痰湿积分>=60 & 血脂异常>=1', (dft['痰湿质']>=60) & (dft['血脂异常项数']>=1)),
+    ('TG>1.7 & BMI>=24', (dft['TG（甘油三酯）']>1.7) & (dft['BMI']>=24)),
+    ('血脂异常>=2 & 痰湿积分>=40', (dft['血脂异常项数']>=2) & (dft['痰湿质']>=40)),
+    ('痰湿积分>=60 & 年龄组>=3', (dft['痰湿质']>=60) & (dft['年龄组']>=3)),
+]
+rows=[]
+for nm, mask in combos:
+    sub = dft[mask]
+    if len(sub):
+        rows.append({'组合': nm, '人数': len(sub),
+                     '占痰湿比例': f"{len(sub)/len(dft)*100:.1f}%",
+                     '实际发病率': f"{sub['高血脂症二分类标签'].mean()*100:.1f}%",
+                     '高风险占比': f"{(sub['最终风险']==3).mean()*100:.1f}%"})
+core = pd.DataFrame(rows)
+print("\n痰湿体质高风险核心特征组合:"); print(core)
+core.to_csv(table_path('Q2_core_combo.csv'), encoding='utf-8-sig', index=False)
 
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    cv_results: dict[str, dict[str, float]] = {}
-    for name, builder in models.items():
-        aucs: list[float] = []
-        accs: list[float] = []
-        f1s: list[float] = []
-        for train_idx, test_idx in skf.split(x_scaled, y):
-            model = builder()
-            x_train, x_test = (x_scaled[train_idx], x_scaled[test_idx]) if name == "Logistic" else (x[train_idx], x[test_idx])
-            model.fit(x_train, y[train_idx])
-            probabilities = model.predict_proba(x_test)[:, 1]
-            predictions = (probabilities >= 0.5).astype(int)
-            aucs.append(float(roc_auc_score(y[test_idx], probabilities)))
-            accs.append(float(accuracy_score(y[test_idx], predictions)))
-            f1s.append(float(f1_score(y[test_idx], predictions)))
-        cv_results[name] = {
-            "AUC_mean": float(np.mean(aucs)),
-            "AUC_std": float(np.std(aucs)),
-            "Acc": float(np.mean(accs)),
-            "F1": float(np.mean(f1s)),
-        }
+# ================ 绘图 ================
+fig = plt.figure(figsize=(16, 12))
 
-    df_cv = pd.DataFrame(cv_results).T.round(4)
-    print("==== 5-Fold CV 结果 ====")
-    print(df_cv)
-    save_csv(df_cv, "Q2_cv_results.csv")
+ax = plt.subplot(2, 3, 1)
+ax.bar(df_cv.index, df_cv['AUC'], yerr=df_cv['AUC_std'],
+       color=['#4C72B0','#55A868','#C44E52'], capsize=5)
+for i, v in enumerate(df_cv['AUC']):
+    ax.text(i, v+0.01, f"{v:.3f}", ha='center', fontweight='bold')
+ax.set_ylim(0.7, 1.02); ax.set_ylabel('AUC')
+ax.set_title('5-Fold CV AUC'); ax.grid(axis='y', alpha=0.3)
 
-    best_lr = LogisticRegression(max_iter=2000, class_weight="balanced", C=1.0, random_state=42)
-    best_lr.fit(x_scaled, y)
-    probabilities = best_lr.predict_proba(x_scaled)[:, 1]
-    df["预测发病概率"] = probabilities
-    print(
-        f"\nLogistic 预测概率分布: min={probabilities.min():.4f}, "
-        f"中位数={np.median(probabilities):.4f}, max={probabilities.max():.4f}"
-    )
+ax = plt.subplot(2, 3, 2)
+top10 = coef.head(10)
+labels_en = {'TG（甘油三酯）':'TG','TC（总胆固醇）':'TC','LDL-C（低密度脂蛋白）':'LDL-C',
+             'HDL-C（高密度脂蛋白）':'HDL-C','空腹血糖':'FBS','血尿酸':'UA','BMI':'BMI',
+             'ADL用厕':'ADL-toilet','ADL吃饭':'ADL-eat','ADL步行':'ADL-walk',
+             'ADL穿衣':'ADL-dress','ADL洗澡':'ADL-bath',
+             'IADL购物':'IADL-shop','IADL做饭':'IADL-cook','IADL理财':'IADL-finance',
+             'IADL交通':'IADL-trans','IADL服药':'IADL-med','痰湿质':'Phlegm'}
+ax.barh(range(10)[::-1], top10.values, color='teal')
+ax.set_yticks(range(10)[::-1])
+ax.set_yticklabels([labels_en.get(s, s[:12]) for s in top10.index])
+ax.set_title('Logistic |β| Top10')
 
-    coef_abs = pd.Series(np.abs(best_lr.coef_[0]), index=features).sort_values(ascending=False)
-    print("\n==== Logistic |beta| Top10 (标准化) ====")
-    print(coef_abs.head(10).round(4))
+ax = plt.subplot(2, 3, 3)
+fpr, tpr, _ = roc_curve(y, proba)
+ax.plot(fpr, tpr, lw=2, label=f'Logistic AUC={roc_auc_score(y,proba):.3f}')
+ax.plot([0,1],[0,1], 'k--', alpha=0.5)
+ax.set_xlabel('FPR'); ax.set_ylabel('TPR'); ax.set_title('ROC Curve'); ax.legend()
 
-    gbdt = GradientBoostingClassifier(n_estimators=300, max_depth=4, learning_rate=0.05, random_state=42)
-    gbdt.fit(x, y)
-    fi_gbdt = pd.Series(gbdt.feature_importances_, index=features).sort_values(ascending=False)
-    print("\n==== GBDT 特征重要度 Top10 (对照) ====")
-    print(fi_gbdt.head(10).round(4))
+ax = plt.subplot(2, 3, 4)
+rd = df.groupby('风险等级')['高血脂症二分类标签'].agg(['count','mean']).reindex(['低风险','中风险','高风险'])
+x = np.arange(3); ax2 = ax.twinx()
+ax.bar(x-0.2, rd['count'], 0.4, color='skyblue', label='# cases')
+ax2.bar(x+0.2, rd['mean'], 0.4, color='salmon', label='actual rate')
+ax.set_xticks(x); ax.set_xticklabels(['Low','Medium','High'])
+ax.set_ylabel('Count'); ax2.set_ylabel('Actual prevalence')
+ax.set_title('Risk Stratification')
+ax.legend(loc='upper left'); ax2.legend(loc='upper right')
 
-    feature_importance = pd.concat(
-        [coef_abs.rename("Logistic_|beta|"), fi_gbdt.rename("GBDT_importance")],
-        axis=1,
-    )
-    save_csv(feature_importance, "Q2_feature_importance.csv")
+ax = plt.subplot(2, 3, 5)
+cmap = {1:'green', 2:'orange', 3:'red'}
+for lv in [1,2,3]:
+    sub = dft[dft['最终风险']==lv]
+    ax.scatter(sub['痰湿质'], sub['活动量表总分（ADL总分+IADL总分）'],
+               c=cmap[lv], alpha=0.6, label=f'Risk L{lv}', s=25)
+ax.axvline(60, color='k', ls=':', alpha=0.4)
+ax.axhline(40, color='k', ls=':', alpha=0.4)
+ax.set_xlabel('Phlegm Score'); ax.set_ylabel('Activity Score')
+ax.set_title('Phlegm Constitution Map'); ax.legend(fontsize=8)
 
-    df["规则风险等级"] = df.apply(rule_risk, axis=1)
-    q33, q67 = np.quantile(probabilities, [0.33, 0.67])
-    print(f"\nLogistic 预测概率分位: q33={q33:.4f}, q67={q67:.4f}")
-    df["模型风险等级"] = df["预测发病概率"].apply(lambda value: model_risk(value, q33, q67))
-    df["最终风险等级"] = np.maximum(df["规则风险等级"], df["模型风险等级"])
-    df["最终风险等级_名"] = df["最终风险等级"].map({1: "低风险", 2: "中风险", 3: "高风险"})
+ax = plt.subplot(2, 3, 6)
+plot_tree(tree, feature_names=['Phlegm','Act','TG','TC','LDL','HDL','BMI','UA','Age'],
+          filled=True, rounded=True, max_depth=3, fontsize=7, ax=ax)
+ax.set_title('Decision Tree (Phlegm Constitution)')
 
-    print("\n==== 最终三级风险分布 ====")
-    print(df["最终风险等级_名"].value_counts())
-    print("\n各风险层实际高血脂发病率:")
-    print(df.groupby("最终风险等级_名")["高血脂症二分类标签"].agg(["count", "mean"]).round(3))
-    print("\n诊断标签 x 风险等级 交叉表:")
-    print(pd.crosstab(df["高血脂症二分类标签"], df["最终风险等级_名"]))
+plt.tight_layout()
+plt.savefig(figure_path('Q2_summary.png'), dpi=150)
+plt.close()
 
-    print("\n各风险层特征均值:")
-    print(
-        df.groupby("最终风险等级_名").agg(
-            血脂异常项数=("血脂异常项数", "mean"),
-            痰湿积分=("痰湿质", "mean"),
-            活动量表总分=("活动量表总分（ADL总分+IADL总分）", "mean"),
-            TG均值=("TG（甘油三酯）", "mean"),
-            TC均值=("TC（总胆固醇）", "mean"),
-            BMI均值=("BMI", "mean"),
-            年龄组=("年龄组", "mean"),
-            预测概率=("预测发病概率", "mean"),
-        ).round(3)
-    )
-
-    dft = df[df["体质标签"] == 5].copy()
-    print(
-        f"\n[痰湿体质{len(dft)}人] 高风险{(dft['最终风险等级'] == 3).sum()}, "
-        f"中风险{(dft['最终风险等级'] == 2).sum()}, 低风险{(dft['最终风险等级'] == 1).sum()}"
-    )
-
-    tree_features = [
-        "痰湿质",
-        "活动量表总分（ADL总分+IADL总分）",
-        "TG（甘油三酯）",
-        "TC（总胆固醇）",
-        "LDL-C（低密度脂蛋白）",
-        "HDL-C（高密度脂蛋白）",
-        "BMI",
-        "血尿酸",
-        "年龄组",
-    ]
-    xt = dft[tree_features].to_numpy()
-    yt = (dft["最终风险等级"] == 3).astype(int).to_numpy()
-    tree = DecisionTreeClassifier(max_depth=4, min_samples_leaf=15, random_state=42)
-    tree.fit(xt, yt)
-    rules_text = export_text(tree, feature_names=tree_features)
-    print("\n==== 痰湿体质高风险的决策规则 ====")
-    print(rules_text)
-    save_text(rules_text, "Q2_tree_rules_phlegm.txt")
-
-    combos = [
-        ("痰湿积分≥60 & 活动量表<40", (dft["痰湿质"] >= 60) & (dft["活动量表总分（ADL总分+IADL总分）"] < 40)),
-        ("痰湿积分≥60 & 血脂异常≥1", (dft["痰湿质"] >= 60) & (dft["血脂异常项数"] >= 1)),
-        ("TG>1.7 & BMI≥24", (dft["TG（甘油三酯）"] > 1.7) & (dft["BMI"] >= 24)),
-        ("血脂异常≥2 & 痰湿积分≥40", (dft["血脂异常项数"] >= 2) & (dft["痰湿质"] >= 40)),
-        ("痰湿积分≥60 & 年龄组≥3", (dft["痰湿质"] >= 60) & (dft["年龄组"] >= 3)),
-    ]
-    rows: list[dict[str, str | int]] = []
-    for name, mask in combos:
-        subset = dft[mask]
-        if len(subset) == 0:
-            continue
-        rows.append(
-            {
-                "组合": name,
-                "人数": int(len(subset)),
-                "占痰湿比例": f"{len(subset) / len(dft) * 100:.1f}%",
-                "实际发病率": f"{subset['高血脂症二分类标签'].mean() * 100:.1f}%",
-                "高风险占比": f"{(subset['最终风险等级'] == 3).mean() * 100:.1f}%",
-            }
-        )
-    core = pd.DataFrame(rows)
-    print("\n==== 痰湿体质高风险核心特征组合 ====")
-    print(core)
-    save_csv(core, "Q2_core_combo.csv", index=False)
-
-    fig = plt.figure(figsize=(16, 12))
-
-    ax = plt.subplot(2, 3, 1)
-    ax.bar(
-        df_cv.index,
-        df_cv["AUC_mean"],
-        yerr=df_cv["AUC_std"],
-        color=["#4C72B0", "#55A868", "#C44E52"],
-        capsize=5,
-    )
-    for idx, value in enumerate(df_cv["AUC_mean"]):
-        ax.text(idx, value + 0.01, f"{value:.3f}", ha="center", fontweight="bold")
-    ax.set_ylim(0.7, 1.02)
-    ax.set_ylabel("AUC")
-    ax.set_title("5-Fold CV AUC")
-    ax.grid(axis="y", alpha=0.3)
-
-    ax = plt.subplot(2, 3, 2)
-    top10 = coef_abs.head(10)
-    ax.barh(range(10)[::-1], top10.to_numpy(), color="teal")
-    ax.set_yticks(range(10)[::-1])
-    ax.set_yticklabels([name[:14] for name in top10.index])
-    ax.set_title("Logistic |beta| Top10")
-
-    ax = plt.subplot(2, 3, 3)
-    fpr, tpr, _ = roc_curve(y, probabilities)
-    ax.plot(fpr, tpr, linewidth=2, label=f"Logistic AUC={roc_auc_score(y, probabilities):.3f}")
-    ax.plot([0, 1], [0, 1], "k--", alpha=0.5)
-    ax.set_xlabel("FPR")
-    ax.set_ylabel("TPR")
-    ax.set_title("ROC Curve")
-    ax.legend()
-
-    ax = plt.subplot(2, 3, 4)
-    risk_dist = (
-        df.groupby("最终风险等级_名")["高血脂症二分类标签"]
-        .agg(["count", "mean"])
-        .reindex(["低风险", "中风险", "高风险"])
-    )
-    x_axis = np.arange(3)
-    ax2 = ax.twinx()
-    ax.bar(x_axis - 0.2, risk_dist["count"], 0.4, color="skyblue", label="# cases")
-    ax2.bar(x_axis + 0.2, risk_dist["mean"], 0.4, color="salmon", label="actual rate")
-    ax.set_xticks(x_axis)
-    ax.set_xticklabels(["Low", "Medium", "High"])
-    ax.set_ylabel("Count")
-    ax2.set_ylabel("Actual prevalence")
-    ax.set_title("Risk Stratification")
-    ax.legend(loc="upper left")
-    ax2.legend(loc="upper right")
-
-    ax = plt.subplot(2, 3, 5)
-    cmap = {1: "green", 2: "orange", 3: "red"}
-    for level in [1, 2, 3]:
-        subset = dft[dft["最终风险等级"] == level]
-        ax.scatter(
-            subset["痰湿质"],
-            subset["活动量表总分（ADL总分+IADL总分）"],
-            c=cmap[level],
-            alpha=0.6,
-            label=f"Risk L{level}",
-            s=25,
-        )
-    ax.axvline(60, color="k", linestyle=":", alpha=0.4)
-    ax.axhline(40, color="k", linestyle=":", alpha=0.4)
-    ax.set_xlabel("Phlegm Score")
-    ax.set_ylabel("Activity Score")
-    ax.set_title("Phlegm Constitution Map")
-    ax.legend(fontsize=8)
-
-    ax = plt.subplot(2, 3, 6)
-    plot_tree(
-        tree,
-        feature_names=["Phlegm", "Act", "TG", "TC", "LDL", "HDL", "BMI", "UA", "Age"],
-        filled=True,
-        rounded=True,
-        max_depth=3,
-        fontsize=7,
-        ax=ax,
-    )
-    ax.set_title("Decision Tree (Phlegm Constitution)")
-
-    save_figure(fig, "Q2_summary.png")
-
-    save_csv(
-        df[
-            [
-                "样本ID",
-                "体质标签",
-                "痰湿质",
-                "活动量表总分（ADL总分+IADL总分）",
-                "TG（甘油三酯）",
-                "TC（总胆固醇）",
-                "LDL-C（低密度脂蛋白）",
-                "HDL-C（高密度脂蛋白）",
-                "BMI",
-                "血脂异常项数",
-                "预测发病概率",
-                "规则风险等级",
-                "模型风险等级",
-                "最终风险等级",
-                "最终风险等级_名",
-                "高血脂症二分类标签",
-            ]
-        ],
-        "Q2_risk_full.csv",
-        index=False,
-    )
-    print("\n[OK] Q2 所有输出保存完成")
-
-
-if __name__ == "__main__":
-    main()
+df[['样本ID','体质标签','痰湿质','活动量表总分（ADL总分+IADL总分）',
+    'TG（甘油三酯）','TC（总胆固醇）','LDL-C（低密度脂蛋白）','HDL-C（高密度脂蛋白）',
+    'BMI','血脂异常项数','预测发病概率','规则风险','模型风险',
+    '最终风险','风险等级','高血脂症二分类标签']].to_csv(
+    table_path('Q2_risk_full.csv'), encoding='utf-8-sig', index=False)
+print("\n[OK] Q2 全部输出完成")

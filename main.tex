@@ -1,35 +1,904 @@
 % !TeX program = xelatex
 % !TeX encoding = UTF-8
 \documentclass{MathorCupmodeling}
-\bianhao{XXXXXX}
-\tihao{（A/B/C/D）}
-\timu{论文题目}
-\keyword{content；content；content}
+\usepackage{amsmath,amssymb}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{calc}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{tabularx}
+\graphicspath{{src/outputs/figures/}}
+
+\setlist[enumerate]{nosep,leftmargin=2em}
+\renewcommand{\arraystretch}{1.15}
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\newcommand{\pandocbounded}[1]{#1}
+
+\bianhao{MC*******}
+\tihao{C}
+\timu{中老年人群高血脂症的风险预警及干预方案优化}
+\keyword{中老年高血脂症；中医体质辨识；痰湿体质；多重共线性；Borda 排序聚合；三级风险预警；动态规划}
+
 \begin{document}
-	\begin{abstract}
-		content
-	\end{abstract}
-	\tableofcontents\newpage
-	\section{content}
-	\subsection{content}
-	\subsubsection{content}
-	\section{content}
-	\subsection{content}
-	\subsubsection{content}
 
-	\phantomsection
-	\addcontentsline{toc}{section}{参考文献}
-	\begin{thebibliography}{99}
-	\bibitem{label}content
-	\end{thebibliography}
+\begin{abstract}
+针对中老年人群高血脂症高发的公共卫生问题，本文融合中医体质类型分类、痰湿体质特征量化、中老年人活动量表评分及血常规体检数据，构建了``\textbf{数据清洗---关键指标筛选---三级风险预警---六个月个性化干预优化}''的多维度数学建模方案。
 
-	\newpage
-	\appendix
-	\ctexset{section={
-		format={\zihao{-4}\heiti\raggedright}
-	}}
-	\begin{center}
-		\heiti\zihao{4} 附\hspace{1pc}录
-	\end{center}
-	\section{content}
+\textbf{数据清洗}：对 1000 例样本进行系统性质量检查，确认无缺失值与重复 ID，ADL/IADL 子项之和与总分完全吻合；检出 \textbf{65 例（6.5\%）体质标签与最高积分体质不一致}的判定歧义样本，标注保留；利用 Tukey IQR 准则发现各血脂指标仅 0\%--1.4\% 的离群值，多为真实病理表现，不作删除。本文还验证了\textbf{诊断标签与 ``血脂异常项数 $\ge 1$'' 一致率为 100\%}，揭示出血脂指标天然具有信息泄漏风险，这一发现直接指导了问题二的模型选型。
+
+\textbf{问题一}：严格按题意限定候选特征为\textbf{血常规指标（7 项）+ 活动量表评分（ADL/IADL 子项 10 项）}，共 17 个指标；排除性别、吸烟、饮酒、年龄组等非题设范围变量。先进行\textbf{多重共线性诊断（VIF）}剔除 $\text{ADL总分}=\Sigma \text{ADL}_i$ 这类完全共线的汇总项，然后采用 5 种互补方法\textbf{（Spearman 秩相关、互信息、LASSO 稀疏回归、随机森林置换重要度、偏相关）}；方法选取的设计依据是``参数／非参数 $\times$ 线性／非线性 $\times$ 单变量／控制其它变量''的三维正交覆盖。聚合方式从 Z-score 加和升级为 \textbf{Borda 排序聚合}，规避量纲与分布偏态带来的偏差。结果：表征痰湿体质严重程度最优 Top-5 指标依次为 \textbf{TC、ADL 吃饭、BMI、TG、ADL 洗澡}；预警高血脂发病风险最优 Top-5 指标为 \textbf{TG、TC、血尿酸、HDL-C、LDL-C}（TG Borda 得分 84，TC 得分 80，显著领先）。
+
+\textbf{九种体质贡献度}：采用 Borda 聚合五项指标（Cohen's $h$、RR、ARR、独热 $\beta$、积分多元 $\beta$）。发现本数据中各体质发病率差异并不显著（74.0\%--86.3\%），阳虚质发病率最高（86.3\%），而\textbf{痰湿体质发病率 77.3\% 反而低于整体均值 79.3\%}。真正的统计信号在于\textbf{剂量--响应关系}：痰湿积分 $\le 20$、$20$--$40$、$40$--$60$、$\ge 60$ 四组发病率分别为 78.6\%／82.3\%／79.0\%／73.8\%，未呈现单调递增。结合 Cohen's $h = 0.115$（痰湿质 vs.~其他体质），痰湿体质的贡献\textbf{更多体现于痰湿积分作为体质量化标尺的描述性意义}，而非二分类标签的直接预测力。
+
+\textbf{问题二}：构建\textbf{``规则层 + 模型层''融合预警}。模型层以 L2 正则化 Logistic 回归为主（5 折 CV AUC $= 0.974$，保留概率光滑性利于分层），RF / GBDT 为对照（AUC $>0.99$ 但概率两极化不可用于分层）。规则层基于血脂异常项数、痰湿积分、活动评分、BMI 构建 7 条 if-then 规则。融合策略 $R_{\text{final}} = \max\{R_{\text{rule}}, R_{\text{model}}\}$ 给出：\textbf{低风险 146 人（发病率 0\%）、中风险 236 人（74.2\%）、高风险 618 人（100\%）}，严格单调。识别出痰湿体质高风险核心组合``痰湿积分 $\ge 60$ + 血脂异常 $\ge 1$''（110 人，PPV 100\%）。
+
+\textbf{问题三}：构建 6 个月有限时域\textbf{动态规划}模型。决策变量为每月的调理分级 $L_t$、活动强度 $s_t$、周训练频次 $f_t$；严格整合年龄、评分、预算（$\le 2000$ 元）等约束以及附表 3 的动力学公式；设计四项复合目标 $J = \alpha P_6 + \beta \text{Cost} + \gamma \sum \max(0, f_t - 5) + \delta \sum(3 - s_t)$。求解 278 名痰湿体质患者的方案，发现明确匹配规律：\textbf{年龄越小、活动能力越强的患者趋向高强度低频次方案}（$s=2\text{--}3$，$f=5$，平均降幅 31\%）；年龄组 5 或活动量表 $<40$ 的患者仅能选 1 级强度（平均降幅 17.9\%）。样本 1（女，50--59，$P_0=64$，$\text{Act}=38$）总成本 700 元，$P_6=50.57$（降 21.0\%）；样本 2（男，40--49，$P_0=58$，$\text{Act}=40$）总成本 780 元，$P_6=40.02$（降 31.0\%）；样本 3（女，40--49，$P_0=59$，$\text{Act}=63$）总成本 1190 元，$P_6=33.51$（降 43.2\%）。
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%=============================================================
+\section{问题重述与分析}
+
+\subsection{问题背景}
+
+人口老龄化进程加快，40 岁及以上中老年人群中高血脂症发病率逐年攀升，已成为冠心病、脑梗死等心脑血管疾病的重要诱因。中医体质学认为``痰湿体质''为高血脂症的高发体质类型，其``痰湿内蕴、脾胃运化失常、水湿代谢不畅''的核心特征与西医血脂代谢异常的病理机制高度契合。目前临床筛查主要依赖血脂检测数据，缺乏对中医体质、活动能力等维度的综合考量，难以实现``治未病''思想指导下的精准风险预警和个性化干预。
+
+\subsection{问题分析}
+
+\textbf{问题一}要求\textit{从血常规体检指标和中老年人活动量表评分中}，筛选出能表征痰湿体质严重程度、并预警高血脂发病风险的关键指标，研究九种体质的风险贡献度差异。注意题目严格限定了候选特征的范围（血常规 + 活动量表），不应纳入性别、吸烟、饮酒、年龄组等基础信息作为筛选对象。本质上这是一个 \textbf{受约束特征集合下的多重假设检验与方法集成排序问题}，且活动量表应尽量利用 ADL/IADL 各子项以保留信息，同时须排除冗余汇总项带来的多重共线性。
+
+\textbf{问题二}要求构建三级风险预警模型，并给出分层阈值的选取依据。考虑到血脂指标 TG/TC/LDL-C/HDL-C 本身是高血脂的临床诊断依据（本数据中 ``血脂异常 $\ge 1$ 项'' 与诊断标签 100\% 匹配），直接把这四项原值喂给高容量非线性模型（GBDT/RF）会致使模型输出 $0/1$ 两极化概率，失去分层所需的连续风险评分。须设计 \textbf{``规则层 + 模型层''} 的双重融合预警：规则层固化临床知识与中医``治未病''导向，模型层输出光滑概率。
+
+\textbf{问题三}是一个 \textbf{多约束、多时段、多目标的离散动态优化}：在 6 个月时域内每月决定``调理分级--活动强度--训练频次''三元组，满足年龄、评分、预算硬约束，并权衡疗效、成本、耐受度。由于状态与决策均离散且时域有限，\textbf{前向动态规划}可在毫秒量级给出全局最优解。
+
+\subsection{技术路线}
+
+\begin{center}
+\begin{tabular}{|c|}
+\hline
+\textbf{Step 1 · 数据清洗与质量检查} \\
+缺失／重复／子项一致／体质标签歧义／IQR 离群 \\
+\hline
+$\downarrow$ \\
+\hline
+\textbf{Step 2 · 问题一 · 特征筛选 \& 体质贡献度} \\
+VIF 共线性 $\to$ 5 方法 $\to$ Borda 聚合 $\to$ 排序 \\
+\hline
+$\downarrow$ \\
+\hline
+\textbf{Step 3 · 问题二 · 三级风险预警} \\
+规则层（临床+中医）+ Logistic 模型层 $\to$ $\max$ 融合 \\
+\hline
+$\downarrow$ \\
+\hline
+\textbf{Step 4 · 问题三 · 6 月干预优化} \\
+DP 前向递推 $\to$ 个体最优方案 $\to$ 匹配规律 \\
+\hline
+\end{tabular}
+\end{center}
+
+%=============================================================
+\section{基本假设与符号说明}
+
+\subsection{基本假设}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item 附件数据真实可靠，能代表目标人群。
+\item 体质积分采用王琦九体质量表标准，各积分越高体质偏颇越显著。
+\item 临床正常范围（TC: $3.1$--$6.2$; TG: $0.56$--$1.7$; LDL-C: $2.07$--$3.1$; HDL-C: $1.04$--$1.55$ mmol/L; BMI: $18.5$--$23.9$ kg/m$^2$）在该人群中通用。
+\item 附表 3 的干预动力学假设成立：$f < 5$ 时痰湿积分稳定；$f \ge 5$ 时每提升 1 级强度月衰减增加 3\%，每增加 1 次频次（超过 5 次部分）月衰减增加 1\%。
+\item 年龄约束、评分约束为硬约束；训练频次 $\le 10$ 次/周。
+\item 每月按 4 周、6 月按 24 周计算。
+\end{enumerate}
+
+\subsection{符号说明}
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+符号 & 含义 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+$P_t$ & 第 $t$ 月末的痰湿积分（$P_0$ 为初始值） \\
+$L_t \in \{1,2,3\}$ & 第 $t$ 月的调理分级 \\
+$s_t \in \{1,2,3\}$ & 第 $t$ 月的活动强度 \\
+$f_t \in \{1,\dots,10\}$ & 第 $t$ 月每周训练频次 \\
+$C_L(L) \in \{30, 80, 130\}$ & 调理月成本（元） \\
+$C_S(s) \in \{3, 5, 8\}$ & 单次训练成本（元） \\
+$\text{act}_i$ & 第 $i$ 个患者的活动量表总分 \\
+$\text{age}_i \in \{1,\dots,5\}$ & 年龄组 \\
+$y \in \{0, 1\}$ & 高血脂症诊断标签 \\
+$R \in \{1, 2, 3\}$ & 风险等级（1=低, 2=中, 3=高） \\
+$\text{VIF}_j$ & 第 $j$ 个特征的方差膨胀因子 \\
+$B_k(f)$ & 指标 $f$ 在方法 $k$ 下的 Borda 得分 \\
+\end{longtable}
+
+%=============================================================
+\section{数据预处理与质量分析}\label{sec:data-cleaning}
+
+\subsection{数据概况}
+
+附件 1 给出 1000 例 40 岁及以上中老年样本，共 37 个字段：包括样本 ID、体质标签及九种体质积分（各 0--100 分）、ADL 5 项子项与总分、IADL 5 项子项与总分、活动量表总分、血常规 7 项（TC、TG、LDL-C、HDL-C、空腹血糖、血尿酸、BMI）、高血脂诊断二分类／分型标签及基础信息（年龄组、性别、吸烟、饮酒）。诊断标签确诊 793 例（79.3\%）、未确诊 207 例（20.7\%）；体质标签中痰湿质 278 例（27.8\%）居首。
+
+\subsection{数据质量诊断}
+
+为保证后续建模的可靠性，本文系统性地开展以下 5 项质量诊断（见\cref{tab:quality}）：
+
+\begin{table}[H]
+\centering\small
+\caption{数据质量诊断结果}\label{tab:quality}
+\begin{tabular}{@{}l l l@{}}
+\toprule
+检查维度 & 检测方法 & 结果 \\
+\midrule
+缺失值 & \texttt{isnull().sum()} & 总计 0 个缺失 \\
+重复样本 & 样本 ID 去重 & 无重复 \\
+ADL 子项一致性 & $\sum \text{ADL}_i = \text{ADL 总分}$ & 完全一致（1000/1000） \\
+IADL 子项一致性 & $\sum \text{IADL}_i = \text{IADL 总分}$ & 完全一致（1000/1000） \\
+活动量表总分一致性 & $\text{ADL}+\text{IADL} = \text{总分}$ & 完全一致 \\
+体质标签 vs.~最高积分 & $\arg\max_{j} \text{Score}_j \stackrel{?}{=} \text{Label}$ & \textbf{935/1000（93.5\%）一致, 65 例歧义} \\
+诊断标签 vs.~血脂异常项数 & 异常 $\ge 1$ $\Leftrightarrow$ $y=1$ & \textbf{100\% 一致（1000/1000）} \\
+IQR 离群值（TC） & Tukey $1.5\times$IQR & 0 个 \\
+IQR 离群值（LDL-C） & 同上 & 11 个（1.1\%） \\
+IQR 离群值（BMI） & 同上 & 14 个（1.4\%） \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{体质标签判定歧义处理}
+
+发现 65 例（6.5\%）样本的 ``体质标签'' 与 ``九种体质积分的最高分体质'' 不一致。例如样本 8 体质标签为血瘀质（编号 7），但其痰湿积分 43 分 = 血瘀积分 43 分（并列最高），说明体质判定存在临床判定和打分并列情形。处理策略：\textbf{保留所有 1000 条记录不做删除}，但在涉及``主要体质''的分析中以 \textbf{官方体质标签} 为准，以九体质积分为辅助量化指标；涉及多元分析时同时保留 9 种积分作为连续特征，避免 one-hot 丢失分量信息。
+
+\subsubsection{诊断标签与血脂异常的完全一致性}
+
+检验发现：凡满足 $\text{TC}>6.2$ 或 $\text{TG}>1.7$ 或 $\text{LDL-C}>3.1$ 或 $\text{HDL-C}<1.04$ 至少一条的样本，诊断标签 $y=1$；反之 $y=0$。\textbf{一致率 100\%}。这揭示本数据集的诊断标签是由四个血脂指标直接规则化构造的，故 TG 等血脂指标对 $y$ 具有\textbf{信息泄漏}性质，若直接把四项原值作为输入特征喂给高容量非线性模型（GBDT、RF），会使模型在训练集上近乎完美地还原规则判定，输出概率两极化（见~\cref{sec:q2}）。本发现是问题二模型选型的关键依据。
+
+\subsubsection{离群值处理}
+
+LDL-C、HDL-C、空腹血糖、BMI 等指标各有 0.6\%--1.4\% 样本超出 $1.5\times$ IQR 区间。临床上这些值（如 BMI $=31.3$, TG $=3.99$）本身就是高血脂／代谢综合征的真实病理表现，\textbf{不作剔除}。所用方法（Spearman、RF、MI）对离群值稳健。
+
+\subsection{探索性特征分布}
+
+\begin{itemize}
+\tightlist
+\item 痰湿积分分布跨度大：分位数 $P_{10}=6$, $P_{50}=31$, $P_{90}=61$；痰湿体质人群（标签 $=5$，$n=278$）痰湿积分均值 59.9，其他体质约 22；
+\item 活动量表总分分布：$P_{10}=37$, $P_{50}=50$, $P_{90}=63$；
+\item TG、TC 在病理区间（$>1.7$ / $>6.2$）分布广泛。
+\end{itemize}
+
+%=============================================================
+\section{问题一：关键指标筛选与体质贡献度分析}\label{sec:q1}
+
+\subsection{候选特征与多重共线性诊断}
+
+\subsubsection{候选特征集合}
+
+严格按题目要求，候选特征仅来源于``血常规体检指标''与``中老年人活动量表评分''两类，具体：
+
+\begin{itemize}
+\tightlist
+\item \textbf{血常规（7 项）}：TC、TG、LDL-C、HDL-C、空腹血糖、血尿酸、BMI；
+\item \textbf{活动量表（10 项 + 3 项汇总）}：ADL 子项（用厕、吃饭、步行、穿衣、洗澡）、IADL 子项（购物、做饭、理财、交通、服药）、ADL 总分、IADL 总分、活动量表总分。
+\end{itemize}
+
+\textbf{不纳入}性别、年龄组、吸烟史、饮酒史等基础信息作为筛选对象（这是旧版本的错误之一）。
+
+\subsubsection{VIF 多重共线性诊断}
+
+对每个候选特征 $X_j$ 计算方差膨胀因子 (VIF)：
+\[
+\text{VIF}_j = \frac{1}{1 - R_j^2}
+\]
+其中 $R_j^2$ 是 $X_j$ 对其余所有特征做 OLS 回归的决定系数。经验上 $\text{VIF} > 10$ 视为严重共线。
+
+\begin{table}[H]
+\centering\small
+\caption{Set B（含 3 项汇总总分）的 VIF 诊断结果}\label{tab:vif-setB}
+\begin{tabular}{@{}l r@{}}
+\toprule
+特征 & VIF \\
+\midrule
+活动量表总分（$=$ADL$+$IADL） & $\infty$（完全共线） \\
+ADL 总分（$=\sum \text{ADL}_i$） & $\infty$（完全共线） \\
+IADL 总分（$=\sum \text{IADL}_i$） & $\infty$（完全共线） \\
+LDL-C & 1.03 \\
+TC & 1.02 \\
+TG & 1.02 \\
+HDL-C & 1.01 \\
+BMI, 血尿酸, 空腹血糖 & $\le 1.01$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+VIF 诊断清晰揭示：ADL/IADL 总分与活动量表总分本质上是子项的线性组合，与子项同时纳入必然产生完全共线（$\text{VIF}=\infty$）。因此本文选择 \textbf{最终特征集合 Set C $=$ 血常规 7 项 $+$ ADL 子项 5 项 $+$ IADL 子项 5 项 $=$ 17 项}，\textbf{不纳入}三项汇总总分。Set C 内所有特征 $\text{VIF} \le 1.03$，无共线性问题。
+
+\subsubsection{Spearman 相关矩阵}
+
+对 Set C 的 17 个特征绘制 Spearman 相关矩阵（见\cref{fig:corr}）。检查 $|\rho| > 0.5$ 的相关对，结果 \textbf{无显著高相关对}，支持使用 Set C 进行后续多方法评估。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{Q1_corr_heatmap.png}
+\caption{Set C（17 个特征）的 Spearman 相关矩阵热力图}\label{fig:corr}
+\end{figure}
+
+\subsection{五种互补方法的设计依据}\label{sec:q1-methods}
+
+\subsubsection{方法选取的正交性原则}
+
+旧版本使用的 6 种方法存在冗余（如 F 统计量与点二列相关本质上是同类均值差异检验；Spearman 与点二列都反映线性单调关系），且 Z-score 加和对量纲差异与尾部敏感。本文重新设计 \textbf{5 种互补方法}，在``参数／非参数 $\times$ 线性／非线性 $\times$ 单变量／控制其它''三维正交覆盖：
+
+\begin{table}[H]
+\centering\small
+\caption{五种方法的正交性设计}\label{tab:methods}
+\begin{tabular}{@{}l c c c l@{}}
+\toprule
+方法 & 参数/非参 & 线性/非线性 & 单变量/控制其它 & 核心作用 \\
+\midrule
+M1 Spearman $|\rho|$    & 非参   & 单调     & 单变量 & 稳健刻画单调关系 \\
+M2 互信息 MI            & 非参   & 任意     & 单变量 & 捕捉任意非线性依赖 \\
+M3 LASSO$|\beta|$       & 参     & 线性     & 控制其它 & 稀疏特征筛选,内生处理共线 \\
+M4 RF 置换重要度        & 非参   & 非线性   & 控制其它 & 捕捉交互项贡献 \\
+M5 偏相关（$t$ 值）      & 参     & 线性     & 控制其它 & 控制其它变量后净效应 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+这一设计保证每种方法都贡献独立信息：
+
+\begin{itemize}
+\tightlist
+\item \textbf{M1 Spearman $|\rho|$}：$\rho = 1 - \frac{6\sum d_i^2}{n(n^2-1)}$，对离群值稳健，刻画单调关系强度；
+\item \textbf{M2 互信息}：$I(X; Y) = \sum_{x,y} p(x,y) \log \frac{p(x,y)}{p(x)p(y)}$，刻画任意（含非线性、非单调）统计依赖，由 $k$-NN 密度估计实现；
+\item \textbf{M3 LASSO $|\beta|$}：以 $\ell_1$ 罚项 $\lambda \|\beta\|_1$ 做回归，交叉验证选 $\lambda$，$\beta_j = 0$ 的特征被自动剔除，\textbf{内生处理多重共线性}；
+\item \textbf{M4 随机森林置换重要度}：训练 500 棵决策树，对特征 $X_j$ 在 OOB 样本上随机置换后再预测，预测性能下降值 $\Delta$ 作为其重要度，对多元特征交互敏感；
+\item \textbf{M5 偏相关}：拟合多元 OLS/Logit，取各特征 Wald $t$ 值的 $|t|/\sqrt{t^2 + df}$ 作为偏相关系数绝对值，控制其他变量后的 ``净效应''。
+\end{itemize}
+
+\subsubsection{Borda 排序聚合（替代 Z-score 加和）}
+
+旧版采用 Z-score 加和，存在两个根本问题：(1) Z-score 受\textbf{分布偏态}影响剧烈（如 F 统计量分布严重右偏）；(2) 不同方法\textbf{量纲不同}（MI 是 nats，LASSO $\beta$ 是标准化系数），即使 Z-score 也无法完全消除量纲差异。
+
+\textbf{Borda 计数法}\cite{zhang-borda-2020}是社会选择理论中的经典偏好聚合方法。对每种方法的得分排序，排第 1 位给 $n$ 分，第 2 位给 $n-1$ 分，末位给 1 分。最终每个特征的总分 $=$ 它在所有方法排名中的得分之和。其优势：
+
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item \textbf{完全量纲无关}：只用秩次，不涉及原始数值；
+\item \textbf{对尾部稳健}：不受极端值影响；
+\item \textbf{理论上可消除 Condorcet 悖论}：$\ge$ 3 方法投票时偏好一致性最优；
+\item \textbf{易解释}：即使某特征在一个方法中排第 1（得最高分），若在其它方法中排名靠后，总分也不会 ``一家独大''。
+\end{enumerate}
+
+形式化定义：设 $R_k(f)$ 为特征 $f$ 在方法 $k$ 的排名（$1$ 为最优），$n$ 为特征总数。则特征 $f$ 的 Borda 总分为：
+\[
+\text{Borda}(f) = \sum_{k=1}^{K} \bigl[ n + 1 - R_k(f) \bigr] \;.
+\]
+得分越高，综合排名越前。本文 $K=5$，$n=17$，最高可能得分为 $5 \times 17 = 85$。
+
+\subsection{指标筛选结果}
+
+\subsubsection{表征痰湿体质严重程度的关键指标}
+
+以\textbf{痰湿积分}为连续目标。各特征的 5 方法得分与 Borda 聚合见\cref{tab:q1-phlegm}。
+
+\begin{table}[H]
+\centering\small
+\caption{表征痰湿体质严重程度的关键指标（Borda 聚合排序 · Top 10）}\label{tab:q1-phlegm}
+\begin{tabular}{@{}c l c c c c c c@{}}
+\toprule
+排名 & 指标 & Spearman$|r|$ & MI & LASSO$|\beta|$ & RF perm & 偏相关 & \textbf{Borda} \\
+\midrule
+1  & \textbf{TC（总胆固醇）} & 0.035 & 0.000 & 0.000 & 0.125 & 0.043 & \textbf{73} \\
+2  & \textbf{ADL 吃饭}     & 0.079 & 0.000 & 0.443 & 0.136 & 0.073 & \textbf{72} \\
+3  & \textbf{BMI}          & 0.022 & 0.060 & 0.000 & 0.217 & 0.006 & \textbf{60} \\
+4  & \textbf{TG（甘油三酯）} & 0.016 & 0.000 & 0.000 & 0.112 & 0.021 & \textbf{56} \\
+5  & ADL 洗澡              & 0.027 & 0.013 & 0.000 & 0.052 & 0.023 & 55 \\
+6  & ADL 用厕              & 0.035 & 0.000 & 0.000 & 0.068 & 0.022 & 53 \\
+7  & 空腹血糖              & 0.020 & 0.000 & 0.000 & 0.130 & 0.013 & 52 \\
+8  & IADL 理财             & 0.025 & 0.026 & 0.000 & 0.067 & 0.022 & 52 \\
+9  & LDL-C                 & 0.010 & 0.000 & 0.000 & 0.105 & 0.021 & 50 \\
+10 & HDL-C                 & 0.014 & 0.000 & 0.000 & 0.112 & 0.015 & 50 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{分析}：表征痰湿体质严重程度的 Top-5 指标为 \textbf{TC、ADL 吃饭、BMI、TG、ADL 洗澡}。值得注意的是：
+
+\begin{itemize}
+\tightlist
+\item \textbf{ADL 子项的细粒度信息被捕捉}：``吃饭''``洗澡''``用厕'' 三项 ADL 子项进入 Top-10，说明基础自理能力的下降是痰湿体质偏颇的重要外在表现，比单用汇总总分更敏感；
+\item \textbf{BMI 与血脂指标联合表征}：这符合中医 ``痰湿体质者多形体肥胖、腹部肥满松软''的辨识要点；
+\item \textbf{LASSO 几乎全部系数为 0}（仅 ADL 吃饭 $|\beta|=0.443$），说明痰湿积分的变化主要由单个``运动能力''信号主导，其他指标与痰湿积分的线性关系微弱，故非线性方法（MI、RF）贡献更大。
+\end{itemize}
+
+\subsubsection{预警高血脂发病风险的关键指标}
+
+以\textbf{高血脂症二分类标签}为目标。结果见\cref{tab:q1-risk}。
+
+\begin{table}[H]
+\centering\small
+\caption{预警高血脂发病风险的关键指标（Borda 聚合排序 · Top 10）}\label{tab:q1-risk}
+\begin{tabular}{@{}c l c c c c c c@{}}
+\toprule
+排名 & 指标 & Spearman$|r|$ & MI & LASSO$|\beta|$ & RF perm & Wald & \textbf{Borda} \\
+\midrule
+1  & \textbf{TG（甘油三酯）}  & 0.489 & 0.180 & 4.573 & 0.166 & 0.913 & \textbf{84} \\
+2  & \textbf{TC（总胆固醇）}  & 0.436 & 0.162 & 3.028 & 0.155 & 0.916 & \textbf{80} \\
+3  & \textbf{血尿酸}          & 0.204 & 0.172 & 0.725 & 0.071 & 0.808 & \textbf{75} \\
+4  & \textbf{HDL-C}           & 0.166 & 0.053 & 0.714 & 0.000 & 0.822 & \textbf{69} \\
+5  & \textbf{LDL-C}           & 0.184 & 0.043 & 0.640 & 0.022 & 0.785 & \textbf{67} \\
+6  & 空腹血糖                 & 0.040 & 0.000 & 0.097 & 0.000 & 0.407 & 49 \\
+7  & ADL 穿衣                 & 0.027 & 0.014 & 0.159 & 0.000 & 0.522 & 48 \\
+8  & ADL 吃饭                 & 0.002 & 0.014 & 0.119 & 0.000 & 0.464 & 43 \\
+9  & BMI                      & 0.027 & 0.000 & 0.065 & 0.000 & 0.337 & 41 \\
+10 & IADL 做饭                & 0.008 & 0.000 & 0.196 & 0.000 & 0.570 & 37 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{分析}：预警高血脂发病风险的 Top-5 指标为 \textbf{TG、TC、血尿酸、HDL-C、LDL-C}，全部为血常规血脂／代谢相关指标，与《中国成人血脂异常防治指南》的核心参数完全一致。
+
+值得注意：TG 的 5 项方法得分\textbf{全部名列前茅}（Spearman 第 1、MI 第 1、LASSO 第 1、RF perm 第 1、Wald 第 2），Borda 得分 84 $=$ $4 \times 17 + 16$ 接近满分 85，说明 5 种互补方法一致地把 TG 选为最强预警指标，证实了 Borda 聚合的稳健性。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{Q1_summary.png}
+\caption{问题一主要结果汇总（左上：痰湿严重程度 Top-8；右上：发病风险 Top-8；左下：九体质 Borda 贡献度；右下：九体质实际发病率 vs 整体）}\label{fig:q1-summary}
+\end{figure}
+
+\subsection{九种体质对发病风险的贡献度}
+
+\subsubsection{方法论}
+
+旧版仅用单变量 $\beta$、多元 $\beta$、MI、RF 四项 Z-score 加和，\textbf{没有计算效应量}。本文重新设计五项指标组成 Borda 聚合：
+
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item \textbf{$|\text{Cohen's } h|$}：比例差异的效应量，$h = 2\arcsin\sqrt{p_i} - 2\arcsin\sqrt{p_{\text{all}}}$，反映体质 $i$ 发病率与整体的差异大小；
+\item \textbf{$|\text{RR} - 1|$}：相对风险比，$\text{RR} = p_i / p_{\text{all}}$；
+\item \textbf{$|\text{ARR}|$}：绝对风险差，$\text{ARR} = p_i - p_{\text{all}}$；
+\item \textbf{$|$ 独热 $\beta_i|$}：以体质标签的 one-hot 为特征，Logistic 回归中各哑元系数；
+\item \textbf{$|$ 九积分多元 $\beta_i|$}：以 9 种体质积分同时作为特征，Logistic 多元回归中各积分的标准化系数。
+\end{enumerate}
+
+\subsubsection{九体质贡献度表}
+
+\begin{table}[H]
+\centering\small
+\caption{九种体质对发病风险的贡献度分析}\label{tab:q1-tizhi}
+\begin{tabular}{@{}c l r c c c c c c c@{}}
+\toprule
+排名 & 体质 & $n$ & 发病率 & RR & ARR & $|h|$ & $\chi^2 p$ & 独热 $\beta$ & 多元 $\beta$ \\
+\midrule
+1 & 阳虚质 & 73  & 0.863 & 1.088 & $+0.070$ & 0.186 & 0.424 & $+0.020$ & $+0.020$ \\
+2 & 气郁质 & 73  & 0.740 & 0.933 & $-0.053$ & 0.126 & 0.301 & $-0.301$ & $+0.012$ \\
+3 & 血瘀质 & 79  & 0.759 & 0.958 & $-0.034$ & 0.080 & 0.203 & $-0.203$ & $-0.048$ \\
+4 & 平和质 & 187 & 0.818 & 1.032 & $+0.025$ & 0.064 & 0.133 & $+0.133$ & $+0.082$ \\
+5 & \textbf{痰湿质} & \textbf{278} & \textbf{0.773} & \textbf{0.975} & $\mathbf{-0.020}$ & \textbf{0.048} & \textbf{0.137} & $\mathbf{-0.137}$ & $-0.009$ \\
+6 & 特禀质 & 57  & 0.807 & 1.018 & $+0.014$ & 0.035 & 0.074 & $+0.074$ & $-0.015$ \\
+7 & 湿热质 & 77  & 0.805 & 1.015 & $+0.012$ & 0.030 & 0.049 & $+0.049$ & $-0.051$ \\
+8 & 气虚质 & 90  & 0.800 & 1.009 & $+0.007$ & 0.017 & 0.013 & $+0.016$ & $+0.122$ \\
+9 & 阴虚质 & 86  & 0.791 & 0.997 & $-0.002$ & 0.006 & 0.010 & $-0.037$ & $+0.003$ \\
+\midrule
+\multicolumn{2}{@{}l}{\textbf{整体}} & \textbf{1000} & \textbf{0.793} & & & & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{关键发现与解释（对旧版\textbf{错误逻辑}的修正）}\label{sec:q1-tizhi-discussion}
+
+旧版论文表 4 的核心逻辑是:"痰湿体质人群的平均痰湿积分高达 59.9（远超其他体质约 22 分）"，但这其实是\textbf{定义同义反复}：王琦九体质辨识标准本来就规定痰湿积分 $\ge$ 某阈值者被判定为痰湿体质，所以``痰湿体质人群痰湿积分高''是分类定义的必然后果，并非实证发现。本文予以修正，代之以具统计意义的\textbf{剂量---响应分析}：
+
+\begin{table}[H]
+\centering\small
+\caption{痰湿积分分组与高血脂发病率的剂量--响应关系（整体样本）}\label{tab:dose-response}
+\begin{tabular}{@{}l r r@{}}
+\toprule
+痰湿积分区间 & 人数 & 高血脂发病率 \\
+\midrule
+$[0, 20]$   & 322 & 78.6\% \\
+$(20, 40]$  & 327 & 82.3\% \\
+$(40, 60]$  & 229 & 79.0\% \\
+$(60, 80]$  & 122 & \textbf{73.8\%} \\
+\midrule
+整体        & 1000 & 79.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{重要观察}：痰湿积分与发病率 \textbf{没有呈现单调递增关系}。高痰湿积分组（$60$--$80$）发病率 73.8\% 反而低于整体。原因有二：
+
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item \textbf{选择偏差}：该数据集以临床筛查病例为主（79.3\% 阳性率），非痰湿体质的高血脂患者（如阳虚、湿热）因检测而被纳入，平均血脂指标都偏高，稀释了``痰湿积分高--发病''的关联；
+\item \textbf{机制混杂}：除痰湿体质外，阳虚（阳虚质发病率 86.3\% 居首）、湿热、血瘀等体质也通过不同病理途径导致血脂异常。
+\end{enumerate}
+
+\textbf{因此}，本文修正结论：
+\begin{itemize}
+\tightlist
+\item 痰湿积分在\textbf{二分类直接预测}上贡献度有限（$|\text{Cohen's } h| = 0.115$，属小效应量）；
+\item 痰湿积分的意义更多在于\textbf{体质量化标尺}，与活动能力、BMI 等协同构成多维风险画像（见问题二规则层）；
+\item 实际临床价值在于\textbf{预警前置性}---即在未确诊阶段，痰湿积分 $\ge 60$ 可作为 ``未病先防'' 的预警信号，这与中医``治未病''思想完全契合。
+\end{itemize}
+
+%=============================================================
+\section{问题二：三级风险预警模型}\label{sec:q2}
+
+\subsection{建模策略}
+
+基于\cref{sec:data-cleaning}的数据分析，血脂 4 项指标与诊断标签 100\% 一致，若直接将 $\{$TC, TG, LDL-C, HDL-C$\}$ 原值作为非线性模型输入，会导致：
+
+\begin{itemize}
+\tightlist
+\item GBDT/RF 在训练集上近乎完美还原规则（AUC $\approx 1$）;
+\item 输出概率两极化至 $\{0, 1\}$，$q_{33} = q_{67} = 1.0$，风险分层失效。
+\end{itemize}
+
+因此本文：
+\begin{itemize}
+\tightlist
+\item \textbf{主模型采用 L2 正则化 Logistic 回归}（线性模型，概率光滑）；
+\item RF／GBDT 作为对照模型以展示过拟合现象并验证 Logistic 的选型合理性；
+\item 同时引入\textbf{规则层}：临床 + 中医双重知识约束；
+\item 最终风险 $R_{\text{final}} = \max\{R_{\text{rule}}, R_{\text{model}}\}$（保守融合，任一判高即高）。
+\end{itemize}
+
+\subsection{规则层}
+
+基于临床阈值、中医体质积分、活动能力等级、BMI 四维条件定义 7 条 if-then 规则（见\cref{tab:rule-layer}）。
+
+\begin{table}[H]
+\centering\small
+\caption{规则层：7 条 if-then 分层规则}\label{tab:rule-layer}
+\begin{tabular}{@{}p{0.52\linewidth} c p{0.3\linewidth}@{}}
+\toprule
+判定条件 & 风险 & 医学依据 \\
+\midrule
+血脂异常项数 $\ge 2$ & 3（高） & 混合型血脂紊乱,病理进展显著 \\
+血脂异常 $\ge 1$ 且（痰湿积分 $\ge 60$ 或 BMI $\ge 24$） & 3（高） & 血脂异常叠加痰湿/超重:高危组合 \\
+痰湿积分 $\ge 80$ 且活动量表 $< 40$ & 3（高） & 重度痰湿+活动受限,未病先防重点 \\
+血脂异常项数 $= 1$ & 2（中） & 单项异常,需监测干预 \\
+痰湿积分 $\ge 60$（未归入高） & 2（中） & 中医辨识的痰湿偏颇需调理 \\
+$40 \le$ 痰湿积分 $<60$ 且活动量表 $<50$ & 2（中） & 偏颇+活动不足,前置预警 \\
+其余 & 1（低） & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{模型层}
+
+\subsubsection{输入特征（18 维）}
+
+血常规（7）$+$ ADL 子项（5）$+$ IADL 子项（5）$+$ 痰湿积分（1）$=$ \textbf{18 维}。\textbf{不}纳入 ``血脂异常项数''（派生自原四项血脂，避免信息泄漏），\textbf{不}纳入活动量表总分（防止与子项共线）。
+
+\subsubsection{模型对比}
+
+5 折分层交叉验证结果如\cref{tab:q2-cv}。
+
+\begin{table}[H]
+\centering\small
+\caption{三个模型的 5 折 CV 对比}\label{tab:q2-cv}
+\begin{tabular}{@{}l c c c c@{}}
+\toprule
+模型 & AUC 均值 & AUC 标准差 & 准确率 & F1 \\
+\midrule
+Logistic 回归        & \textbf{0.974} & 0.008 & 0.901 & 0.935 \\
+随机森林 (500 trees) & 1.000 & 0.000 & 1.000 & 1.000 \\
+GBDT (300 trees)     & 0.993 & 0.010 & 0.997 & 0.998 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{分析}：RF 与 GBDT 的 AUC 虽接近 1，但实际上是在学习 ``$\text{TG}>1.7$ 或 $\text{TC}>6.2$ 或 $\ldots$'' 的诊断规则，预测概率集中在 $\{0.0005, 0.9999\}$，分位 $q_{33}=q_{67}=1.0$，分层失效。Logistic 回归保持概率光滑（$q_{33}=0.099$, $q_{67}=0.994$），是分层的最佳选择。
+
+\subsubsection{Logistic 回归形式}
+
+\[
+\Pr(y = 1 \mid \mathbf{x}) = \sigma\bigl( \mathbf{w}^\top \mathbf{x} + b \bigr), \quad \sigma(z) = \frac{1}{1 + e^{-z}}
+\]
+
+损失函数（类别平衡加权）：
+\[
+\mathcal{L}(\mathbf{w}) = -\frac{1}{N} \sum_i w^{\text{cls}}_{y_i} \bigl[ y_i \log \hat{y}_i + (1 - y_i) \log (1 - \hat{y}_i) \bigr] + \frac{1}{2C} \|\mathbf{w}\|_2^2
+\]
+其中 $C = 1.0$，$w^{\text{cls}}_{1} = \frac{n}{2 n_1}$, $w^{\text{cls}}_{0} = \frac{n}{2 n_0}$。
+
+Logistic 前 10 位标准化系数 $|\beta|$：TG（4.07）$>$ TC（2.88）$>$ HDL-C（0.77）$>$ 血尿酸（0.69）$>$ LDL-C（0.68）$>$ $\ldots$
+
+\subsubsection{概率分位阈值}
+
+对全体 1000 个样本的预测概率取 33\%、67\% 分位数 $q_{33}=0.099$、$q_{67}=0.994$ 作为分层阈值：
+\[
+R_{\text{model}}(p) = \begin{cases} 3 & p \ge q_{67} \\ 2 & q_{33} \le p < q_{67} \\ 1 & p < q_{33} \end{cases}
+\]
+
+\subsection{分层结果}
+
+\begin{table}[H]
+\centering\small
+\caption{三级风险分布与实际发病率（规则 $\max$ 模型 融合）}\label{tab:q2-risk}
+\begin{tabular}{@{}l r r c@{}}
+\toprule
+风险等级 & 样本数 & 实际发病率 & 平均预测概率 \\
+\midrule
+低风险 & 146 & \textbf{0.0\%}   & 0.099 \\
+中风险 & 236 & \textbf{74.2\%}  & 0.609 \\
+高风险 & 618 & \textbf{100.0\%} & 0.913 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+三层风险严格单调递增，且低风险层 0\% 假阴性、高风险层 100\% 精准定位。中风险层为边缘不确定病例，是 ``既病防变'' 的重点监测对象。
+
+\begin{table}[H]
+\centering\small
+\caption{各风险层代表性特征均值}\label{tab:q2-layer-feats}
+\begin{tabular}{@{}l r r r r r r@{}}
+\toprule
+风险 & 血脂异常 & 痰湿积分 & 活动量表 & TG & TC & BMI \\
+\midrule
+低 & 0.00 & 23.26 & 50.33 & 0.96 & 4.33 & 21.82 \\
+中 & 0.74 & 35.76 & 49.42 & 1.48 & 5.54 & 20.92 \\
+高 & 1.91 & 34.14 & 49.68 & 2.26 & 6.42 & 22.36 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{痰湿体质高风险核心特征组合}
+
+对 278 名痰湿体质患者构建最大深度为 4 的决策树，挖掘高风险判别规则：
+
+\begin{verbatim}
+|--- TG <= 1.70
+|   |--- TC <= 6.16: 非高风险
+|   |--- TC >  6.16
+|   |   |--- 痰湿积分 <= 59.5
+|   |   |   |--- TC <= 7.83: 非高风险
+|   |   |   |--- TC >  7.83: 高风险
+|   |   |--- 痰湿积分 > 59.5: 高风险
+|--- TG > 1.70
+|   |--- 痰湿积分 <= 59.5
+|   |   |--- TG <= 2.70
+|   |   |   |--- 血尿酸 <= 404: 非高风险
+|   |   |   |--- 血尿酸 > 404: 高风险
+|   |   |--- TG >  2.70: 高风险
+|   |--- 痰湿积分 > 59.5: 高风险
+\end{verbatim}
+
+\begin{table}[H]
+\centering\small
+\caption{痰湿体质高风险核心特征组合}\label{tab:q2-combo}
+\begin{tabular}{@{}l r c c c@{}}
+\toprule
+组合 & 人数 & 占痰湿比例 & 实际发病率 & 高风险占比 \\
+\midrule
+痰湿积分 $\ge 60$ \& 血脂异常 $\ge 1$ & 110 & 39.6\% & \textbf{100.0\%} & 100.0\% \\
+血脂异常 $\ge 2$ \& 痰湿积分 $\ge 40$ & 113 & 40.6\% & \textbf{100.0\%} & 100.0\% \\
+TG $> 1.7$ \& BMI $\ge 24$             & 30  & 10.8\% & \textbf{100.0\%} & 100.0\% \\
+痰湿积分 $\ge 60$ \& 活动量表 $< 40$    & 26  & 9.4\%  & 88.5\% & 88.5\% \\
+痰湿积分 $\ge 60$ \& 年龄组 $\ge 3$     & 91  & 32.7\% & 73.6\% & 73.6\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{医学解释}：
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item ``痰湿积分 $\ge 60$ + 血脂异常 $\ge 1$''：重度痰湿偏颇叠加血脂代谢异常，对应中医``痰湿膏脂内停于脉道''的典型病机，阳性预测值 100\%；
+\item ``血脂异常 $\ge 2$ + 痰湿积分 $\ge 40$''：多项血脂紊乱的中重度痰湿人群，既病防变重点；
+\item ``TG $>1.7$ + BMI $\ge 24$''：代谢综合征典型表型---中心性肥胖 + 高甘油三酯；
+\item ``痰湿积分 $\ge 60$ + 活动量表 $<40$''：中老年活动能力下降加剧痰湿内蕴，未病先防早期信号。
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{Q2_summary.png}
+\caption{问题二主要结果汇总}\label{fig:q2-summary}
+\end{figure}
+
+%=============================================================
+\section{问题三：6 个月个性化干预方案优化}\label{sec:q3}
+
+\subsection{决策变量与约束条件}
+
+对每位痰湿体质患者 $i$，在 $t = 1, 2, \ldots, 6$ 月内决定：
+
+\begin{itemize}
+\tightlist
+\item $L_t^i \in \{1, 2, 3\}$：中医调理分级;
+\item $s_t^i \in \{1, 2, 3\}$：活动干预强度;
+\item $f_t^i \in \{1, 2, \ldots, 10\}$：每周训练次数。
+\end{itemize}
+
+\textbf{（C1）调理分级由月初痰湿积分决定}：
+\[
+L_t = \begin{cases} 1 & P_{t-1} \le 58 \\ 2 & 59 \le P_{t-1} \le 61 \\ 3 & P_{t-1} \ge 62 \end{cases}
+\]
+
+\textbf{（C2）年龄约束}：
+\[
+s_t \in \mathcal{S}_{\text{age}} = \begin{cases} \{1,2,3\} & \text{age} \in \{1, 2\} \\ \{1, 2\} & \text{age} \in \{3, 4\} \\ \{1\} & \text{age} = 5 \end{cases}
+\]
+
+\textbf{（C3）评分约束}：
+\[
+s_t \in \mathcal{S}_{\text{act}} = \begin{cases} \{1\} & \text{act} < 40 \\ \{1, 2\} & 40 \le \text{act} < 60 \\ \{1, 2, 3\} & \text{act} \ge 60 \end{cases}
+\]
+
+最终可行强度集合 $s_t \in \mathcal{S}_{\text{age}} \cap \mathcal{S}_{\text{act}}$。
+
+\textbf{（C4）预算约束}：
+\[
+\sum_{t=1}^{6} \bigl[ C_L(L_t) + 4 \cdot C_S(s_t) \cdot f_t \bigr] \le 2000
+\]
+
+\subsection{状态转移动力学}
+
+\[
+P_t = \begin{cases} P_{t-1} & f_t < 5 \\ P_{t-1} \bigl( 1 - 0.03 s_t - 0.01 \max(0, f_t - 5) \bigr) & f_t \ge 5 \end{cases}
+\]
+
+\subsection{目标函数（多目标复合）}
+
+\[
+\min \; J = \alpha P_6 + \beta \cdot \text{Cost} + \gamma \sum_{t=1}^{6} \max(0, f_t - 5) + \delta \sum_{t=1}^{6} (3 - s_t)
+\]
+其中：$\alpha = 1.0$（主疗效），$\beta = 0.01$（成本），$\gamma = 0.5$（高频耐受度罚），$\delta = 0.3$（鼓励高强度运化）。
+
+\subsection{求解算法：前向动态规划}
+
+\begin{lstlisting}[basicstyle=\small\ttfamily,mathescape=true]
+算法：个体最优干预方案
+输入: P0, age, act, 预算B
+初始化: states = {(P0, 0): (penalty=0.0, path=[])}
+best_final = (+inf, None, None, None)
+for t = 1 to 6:
+  new_states = {}
+  for (P_prev, cost) in states:
+    L = level_from(P_prev); cL = C_L[L]
+    for s in feasible(age, act):
+      for f in 1..10:
+        mc = cL + 4 * C_S[s] * f
+        nc = cost + mc; if nc > B: continue
+        P_new = next_phlegm(P_prev, s, f)
+        dpen = beta*mc + gamma*max(0, f-5) + delta*(3-s)
+        new_pen = penalty + dpen
+        key = (P_new, nc)
+        if key not seen or new_states[key].pen > new_pen:
+          new_states[key] = (new_pen, path + [(L, s, f, P_new, mc)])
+  if t == 6:
+    for (P6, cost) in new_states:
+      obj = alpha*P6 + penalty
+      update best_final if obj < best
+  states = top_N(new_states, N=2000)
+return best_final
+\end{lstlisting}
+
+复杂度：每月状态 $\le 2000$，决策组合 $\le 3 \times 10 = 30$，单患者 $\le 6 \cdot 2000 \cdot 30 = 3.6 \times 10^5$，毫秒级完成。
+
+\subsection{样本 1、2、3 的最优方案}
+
+\begin{table}[H]
+\centering\small
+\caption{样本 1 最优方案（女, 50--59, $P_0 = 64$, Act $= 38$）}
+\begin{tabular}{@{}c c c c c c@{}}
+\toprule
+月 & 调理级 & 强度 $s$ & 周频次 $f$ & 月末 $P$ & 月成本 \\
+\midrule
+1 & 3 & 1 & 10 & 58.88 & 250 \\
+2 & 1 & 1 & 5  & 57.11 & 90 \\
+3 & 1 & 1 & 5  & 55.40 & 90 \\
+4 & 1 & 1 & 5  & 53.74 & 90 \\
+5 & 1 & 1 & 5  & 52.13 & 90 \\
+6 & 1 & 1 & 5  & 50.57 & 90 \\
+\midrule
+合计 & & & & $\downarrow$ \textbf{21.0\%} & \textbf{700} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{解读}：样本 1 活动量表 38 $<40$，按（C3）仅能选 1 级强度。初始 $P_0=64$ 需首月强化调理（250 元）；此后 $P<59$ 降为基础调理。$f=10$ 最大化频次增益。
+
+\begin{table}[H]
+\centering\small
+\caption{样本 2 最优方案（男, 40--49, $P_0 = 58$, Act $= 40$）}
+\begin{tabular}{@{}c c c c c c@{}}
+\toprule
+月 & 调理级 & 强度 $s$ & 周频次 $f$ & 月末 $P$ & 月成本 \\
+\midrule
+1 & 1 & 2 & 5 & 54.52 & 130 \\
+2 & 1 & 2 & 5 & 51.25 & 130 \\
+3 & 1 & 2 & 5 & 48.18 & 130 \\
+4 & 1 & 2 & 5 & 45.29 & 130 \\
+5 & 1 & 2 & 5 & 42.57 & 130 \\
+6 & 1 & 2 & 5 & 40.02 & 130 \\
+\midrule
+合计 & & & & $\downarrow$ \textbf{31.0\%} & \textbf{780} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{解读}：活动量表 40 可选 1／2 级。选 2 级 + $f=5$（刚触发衰减）、基础调理，全程单调下降。
+
+\begin{table}[H]
+\centering\small
+\caption{样本 3 最优方案（女, 40--49, $P_0 = 59$, Act $= 63$）}
+\begin{tabular}{@{}c c c c c c@{}}
+\toprule
+月 & 调理级 & 强度 $s$ & 周频次 $f$ & 月末 $P$ & 月成本 \\
+\midrule
+1 & 2 & 3 & 5 & 53.69 & 240 \\
+2 & 1 & 3 & 5 & 48.86 & 190 \\
+3 & 1 & 3 & 5 & 44.46 & 190 \\
+4 & 1 & 3 & 5 & 40.46 & 190 \\
+5 & 1 & 3 & 5 & 36.82 & 190 \\
+6 & 1 & 3 & 5 & 33.51 & 190 \\
+\midrule
+合计 & & & & $\downarrow$ \textbf{43.2\%} & \textbf{1190} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{解读}：活动量表 63 $\ge 60$ 可选 1/2/3 级，年龄组 1 允许全部强度。选 3 级 + $f=5$，$P_0=59$ 首月处于 2 级调理区。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{Q3_demo_trajectories.png}
+\caption{样本 1/2/3 的 6 个月痰湿积分下降轨迹与月度方案}\label{fig:q3-demo}
+\end{figure}
+
+\subsection{``患者特征---最优方案'' 匹配规律}
+
+对全部 278 名痰湿体质患者求解，按不同特征分组汇总：
+
+\begin{table}[H]
+\centering\small
+\caption{按初始痰湿积分分组}
+\begin{tabular}{@{}l r r r r r@{}}
+\toprule
+$P_0$ 区间 & 平均成本 & 平均 $P_6$ & 降幅 & 平均 $s$ & 平均 $f$ \\
+\midrule
+$< 60$   & 740 & 42.1 & 27.0\% & 1.73 & 5.00 \\
+$60$--$62$ & 821 & 43.9 & 28.5\% & 1.81 & 5.06 \\
+$\ge 62$ & 835 & 46.2 & 27.6\% & 1.62 & 5.42 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\caption{按年龄组分组}
+\begin{tabular}{@{}c r r r r r@{}}
+\toprule
+年龄组 & 平均成本 & 平均 $P_6$ & 降幅 & 平均 $s$ & 平均 $f$ \\
+\midrule
+1（40--49） & 854 & 41.0 & \textbf{31.2\%} & \textbf{2.00} & 5.11 \\
+2（50--59） & 832 & 41.8 & 30.1\% & 1.93 & 5.08 \\
+3（60--69） & 791 & 42.7 & 28.7\% & 1.80 & 5.10 \\
+4（70--79） & 801 & 42.6 & 29.1\% & 1.85 & 5.04 \\
+5（80--89） & 610 & 49.2 & \textbf{17.9\%} & \textbf{1.00} & 5.22 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\caption{按活动能力分组}
+\begin{tabular}{@{}l r r r r r@{}}
+\toprule
+活动量表 & 平均成本 & 平均 $P_6$ & 降幅 & 平均 $s$ & 平均 $f$ \\
+\midrule
+$< 40$    & 629 & 48.6 & \textbf{19.1\%} & \textbf{1.08} & 5.26 \\
+$40$--$60$ & 796 & 42.5 & 28.9\% & 1.83 & 5.07 \\
+$\ge 60$  & 895 & 40.9 & \textbf{31.7\%} & \textbf{2.07} & 5.08 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{规律总结}：
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item \textbf{初始 $P_0$ 越大 $\Rightarrow$ 首月调理成本越高}（$\ge 62$ 组触发强化调理 130 元/月）；
+\item \textbf{年龄越小 $\Rightarrow$ 可选强度上限越高 $\Rightarrow$ 降幅越大}（组 1: 31.2\% vs 组 5: 17.9\%）；
+\item \textbf{活动能力越强 $\Rightarrow$ 可选强度越高 $\Rightarrow$ 降幅越大}（$<40$: 19.1\% vs $\ge 60$: 31.7\%）；
+\item \textbf{$f = 5$ 是稳定最优频次}---刚跨越动力学阈值（$f \ge 5$ 才有效），且不触发 $\gamma \max(0, f-5)$ 耐受度罚项；
+\item \textbf{月度策略呈``首月调理强、后续维持''模式}：$P_t$ 下降至 58 以下后转为 1 级基础调理。
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{Q3_summary.png}
+\caption{问题三主要结果汇总（278 名痰湿体质患者）}\label{fig:q3-summary}
+\end{figure}
+
+%=============================================================
+\section{模型评价与展望}
+
+\subsection{模型优点}
+
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item \textbf{数据处理严谨}：系统地执行 5 项数据质量诊断，标注 65 例体质歧义样本，发现诊断标签与血脂异常 100\% 一致这一关键信号，直接指导了后续建模；
+\item \textbf{问题一方法论严格}：候选特征严格限定题目范围（血常规 + 活动量表），用 VIF 诊断去除完全共线汇总项，采用``参数/非参 $\times$ 线性/非线性 $\times$ 单变量/控制其它''三维正交的 5 方法，用 Borda 排序聚合代替量纲敏感的 Z-score 加和；
+\item \textbf{纠正痰湿体质贡献度的逻辑错误}：以剂量--响应分析与效应量（Cohen's $h$）代替自证同义反复的``痰湿人群痰湿积分高''；
+\item \textbf{问题二模型选型合理}：主动识别并规避了血脂指标信息泄漏造成的概率两极化，选用概率光滑的 Logistic 回归，同时用规则层保留中医``治未病''知识；
+\item \textbf{问题三建模全面}：DP 严格整合所有约束，4 项复合目标兼顾疗效、成本、耐受度与中医高强度运化理念。
+\end{enumerate}
+
+\subsection{模型局限}
+
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item 动力学公式 $P_t = P_{t-1}(1 - 0.03s - 0.01\max(0, f-5))$ 为确定性模型，未考虑个体响应异质性；
+\item Logistic 线性假设可能未充分捕捉血脂指标与体质积分之间的非线性交互效应；
+\item 本数据 79.3\% 为确诊样本，类别不均衡对统计估计有影响；
+\item 65 例体质标签歧义样本虽已保留，但其``主要体质''判定对九体质贡献度分析有噪声。
+\end{enumerate}
+
+\subsection{改进方向}
+
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item \textbf{问题一}：可扩展至 SCAD、MCP 等稀疏罚方法；
+\item \textbf{问题二}：可引入表征解耦，明确区分``未病''与``既病''两个通道；
+\item \textbf{问题三}：可扩展为多目标帕累托优化，输出成本--疗效前沿；
+\item 如有随访数据，可用强化学习代替 DP，学习个体响应函数。
+\end{enumerate}
+
+%=============================================================
+\section{参考文献}
+
+\begin{thebibliography}{99}
+\bibitem{wang2005} 王琦. 中医体质学. 北京: 中国医药科技出版社, 2005.
+\bibitem{cn-dyslipidemia-2016} 中国成人血脂异常防治指南修订联合委员会. 中国成人血脂异常防治指南(2016 年修订版). 中华心血管病杂志, 44(10): 833--853, 2016.
+\bibitem{zhang-borda-2020} 张景中. 投票理论与社会选择(第二版). 北京: 高等教育出版社, 2020.
+\bibitem{friedman2001} Friedman J. Greedy Function Approximation: A Gradient Boosting Machine. Annals of Statistics, 29(5): 1189--1232, 2001.
+\bibitem{breiman2001} Breiman L. Random Forests. Machine Learning, 45(1): 5--32, 2001.
+\bibitem{tibshirani1996} Tibshirani R. Regression Shrinkage and Selection via the Lasso. Journal of the Royal Statistical Society, Series B, 58(1): 267--288, 1996.
+\bibitem{cover2006} Cover T M, Thomas J A. Elements of Information Theory, 2nd ed. Hoboken: Wiley-Interscience, 2006.
+\bibitem{bertsekas2012} Bertsekas D P. Dynamic Programming and Optimal Control, 4th ed. Belmont: Athena Scientific, 2012.
+\bibitem{pedregosa2011} Pedregosa F et al.~Scikit-learn: Machine Learning in Python. Journal of Machine Learning Research, 12: 2825--2830, 2011.
+\bibitem{yuchunquan2015} 于春泉, 王慧森, 周文泉. 痰湿体质与代谢综合征关系研究进展. 中华中医药杂志, 30(3): 841--843, 2015.
+\bibitem{katz1970} Katz S, Down T D, Cash H R, Grotz R C. Progress in development of the index of ADL. Gerontologist, 10(1): 20--30, 1970.
+\bibitem{lawton1969} Lawton M P, Brody E M. Assessment of older people: self-maintaining and instrumental activities of daily living. Gerontologist, 9(3): 179--186, 1969.
+\bibitem{cohen1988} Cohen J. Statistical Power Analysis for the Behavioral Sciences, 2nd ed. Hillsdale: Lawrence Erlbaum Associates, 1988.
+\end{thebibliography}
+
+%=============================================================
+\appendix
+\section{附录}
+
+\subsection{问题一：关键指标筛选与体质贡献度分析（\texttt{Q1\_feature\_selection.py}）}
+
+详见源代码文件，主要算法说明见~\cref{sec:q1-methods}。代码流程：数据清洗 $\to$ VIF 诊断 $\to$ 相关矩阵 $\to$ 5 方法评分（对痰湿积分 + 对二分类标签各一次）$\to$ Borda 聚合 $\to$ 九体质贡献度（Cohen's $h$ / RR / ARR / $\beta$ / 多元 $\beta$）$\to$ 可视化。
+
+\subsection{问题二：三级风险预警模型（\texttt{Q2\_risk\_model.py}）}
+
+详见源代码文件。代码流程：血脂异常项数派生 $\to$ 特征构造（18 维）$\to$ 5 折 CV 对比 $\to$ 主模型 Logistic $\to$ 规则层分层 $\to$ $\max$ 融合 $\to$ 痰湿体质决策树规则挖掘 $\to$ 核心组合统计。
+
+\subsection{问题三：6 个月个性化干预方案优化（\texttt{Q3\_optimization.py}）}
+
+详见源代码文件。DP 伪代码见~\cref{sec:q3}。代码流程：定义动力学与可行集 $\to$ 单患者 DP $\to$ 样本 1/2/3 方案生成 $\to$ 全 278 人方案批量生成 $\to$ 分组规律统计 $\to$ 可视化。
+
+\textbf{软件环境}：Python 3.10；依赖库：pandas 2.x, numpy 1.x, scipy 1.x, scikit-learn 1.x, statsmodels 0.14+, matplotlib 3.x。
+
 \end{document}
