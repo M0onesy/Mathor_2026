@@ -1,0 +1,24 @@
+{
+  "top_direct_indicators": [
+    "TG（甘油三酯）",
+    "TC（总胆固醇）",
+    "LDL-C（低密度脂蛋白）",
+    "HDL-C（高密度脂蛋白）"
+  ],
+  "top_auxiliary_indicators": [
+    "血尿酸",
+    "ADL洗澡",
+    "空腹血糖",
+    "ADL吃饭",
+    "IADL服药",
+    "ADL用厕"
+  ],
+  "raw_activity_vif_has_inf": true,
+  "clean_activity_vif_max": 1.012878340909486,
+  "constitution_vif_max": 1.2094860878772644,
+  "max_constitution_abs_corr": 0.22338428088884335,
+  "formal_l1logit_auc": 0.6434685137464895,
+  "leakage_l1logit_auc": 0.9756626520703499,
+  "tanshi_lasso_best_oof_r2": -0.00638524055365175,
+  "constitution_model_aic": 1030.6617
+}

@@ -1,0 +1,37 @@
+{
+  "best_early_model_family": "直方梯度提升树",
+  "final_early_model": "直方梯度提升树+Sigmoid校准",
+  "calibration_applied": true,
+  "best_early_model_auc": 0.8949,
+  "best_early_model_auc_ci": [
+    0.8759,
+    0.9125
+  ],
+  "best_early_model_f1": 0.8918,
+  "best_early_model_brier": 0.1032,
+  "threshold_low": 19.4248,
+  "threshold_high": 49.4606,
+  "threshold_low_ci": [
+    18.226,
+    22.3889
+  ],
+  "threshold_high_ci": [
+    48.7972,
+    50.6357
+  ],
+  "risk_group_prevalence": {
+    "低风险": 0.0,
+    "中风险": 0.851,
+    "高风险": 1.0
+  },
+  "top_early_features": [
+    "血尿酸",
+    "性别",
+    "ADL洗澡",
+    "BMI",
+    "年龄组",
+    "气虚质"
+  ],
+  "stable_rule_count": 4,
+  "label_rule_agreement": 1.0
+}

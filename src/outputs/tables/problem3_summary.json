@@ -1,0 +1,18 @@
+{
+  "patient_count": 278,
+  "template_count": 31,
+  "average_final_score": 38.5797,
+  "average_drop_rate": 35.5687,
+  "average_total_cost": 1310.1942,
+  "switch_patient_count": 15,
+  "dynamic_better_than_static_count": 15,
+  "dynamic_vs_static_mean_gain": 0.0756,
+  "dynamic_vs_static_final_pvalue": 0.000317,
+  "budget_1600_overall_final_score": 38.7721,
+  "budget_2000_overall_final_score": 38.5797,
+  "sample_1_3_final_scores": {
+    "1": 47.04,
+    "2": 35.17,
+    "3": 30.64
+  }
+}
