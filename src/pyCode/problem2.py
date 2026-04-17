@@ -47,6 +47,7 @@ from common import (
     TREE_ACTIVITY_FEATURES,
     TREE_EARLY_SCREENING_FEATURES,
     configure_plotting,
+    critic_weights,
     describe_age_group,
     describe_sex,
     find_sample_data_path,
@@ -65,13 +66,13 @@ from common import (
 warnings.filterwarnings("ignore")
 
 
-BASE_RISK_WEIGHTS = {
-    "lipid_burden": 0.32,
-    "lipid_excess": 0.22,
-    "early_risk": 0.19,
-    "metabolic_modifier": 0.12,
-    "function_modifier": 0.15,
-}
+RISK_COMPONENTS = [
+    "lipid_burden",
+    "lipid_excess",
+    "early_risk",
+    "metabolic_modifier",
+    "function_modifier",
+]
 REPEATED_SPLITS = 5
 REPEATED_REPEATS = 5
 FIXED_SPLITS = 5
@@ -635,7 +636,6 @@ def build_clinical_risk_score(
     p_early: np.ndarray,
     weights: dict[str, float] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    weights = weights or BASE_RISK_WEIGHTS
     lipid_flags = get_lipid_flags(df)
     metabolic_flags = get_metabolic_flags(df)
 
@@ -663,16 +663,28 @@ def build_clinical_risk_score(
         + 0.5 * minmax_scale(100 - df[COLS.activity_total])
     )
 
+    # ---- CRITIC 客观赋权 ----
+    if weights is None:
+        raw_for_critic = pd.DataFrame({
+            "lipid_burden": raw["lipid_burden_raw"],
+            "lipid_excess": raw["lipid_excess_raw"],
+            "early_risk": raw["early_risk_raw"],
+            "metabolic_modifier": raw["metabolic_modifier_raw"],
+            "function_modifier": raw["function_modifier_raw"],
+        })
+        weights = critic_weights(raw_for_critic)
+        print(f"  CRITIC 客观赋权结果: {', '.join(f'{k}={v:.4f}' for k, v in weights.items())}")
+
     component_df = pd.DataFrame(index=df.index)
-    for component in BASE_RISK_WEIGHTS:
+    for component in RISK_COMPONENTS:
         normalized = minmax_scale(raw[f"{component}_raw"])
         component_df[f"{component}_norm"] = normalized
         component_df[component] = weights[component] * normalized
-    component_df["R"] = 100 * component_df[list(BASE_RISK_WEIGHTS)].sum(axis=1)
+    component_df["R"] = 100 * component_df[list(RISK_COMPONENTS)].sum(axis=1)
 
     merged = pd.concat([component_df, raw, lipid_flags, metabolic_flags, severity_raw], axis=1)
     weight_frame = pd.DataFrame(
-        [{"分量": key, "基准权重": value, "说明": "分量归一化后线性加权"} for key, value in weights.items()]
+        [{"分量": key, "CRITIC权重": round(value, 4), "说明": "CRITIC客观赋权法自动计算"} for key, value in weights.items()]
     )
     return merged, weight_frame
 
@@ -859,15 +871,21 @@ def bootstrap_threshold_stability(score: pd.Series, label: pd.Series) -> tuple[p
 def compute_weight_sensitivity(
     base_components: pd.DataFrame,
     label: pd.Series,
+    base_weights: dict[str, float] | None = None,
 ) -> pd.DataFrame:
+    if base_weights is None:
+        raw_for_critic = pd.DataFrame({
+            c: base_components[f"{c}_norm"] for c in RISK_COMPONENTS
+        })
+        base_weights = critic_weights(raw_for_critic)
     rows = []
-    scenarios = [("基准权重", None, 1.0)]
-    for component in BASE_RISK_WEIGHTS:
+    scenarios = [("CRITIC基准权重", None, 1.0)]
+    for component in RISK_COMPONENTS:
         scenarios.append((f"{component}+20%", component, 1.2))
         scenarios.append((f"{component}-20%", component, 0.8))
 
     for scenario_name, component, factor in scenarios:
-        weights = BASE_RISK_WEIGHTS.copy()
+        weights = base_weights.copy()
         if component is not None:
             weights[component] *= factor
             total = sum(weights.values())
@@ -875,7 +893,7 @@ def compute_weight_sensitivity(
 
         score = 100 * sum(
             weights[key] * base_components[f"{key}_norm"]
-            for key in BASE_RISK_WEIGHTS
+            for key in RISK_COMPONENTS
         )
         try:
             low, high, _ = search_thresholds(score, label)

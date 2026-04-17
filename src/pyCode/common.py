@@ -303,6 +303,21 @@ def get_metabolic_flags(df: pd.DataFrame) -> pd.DataFrame:
     return flags_df
 
 
+def critic_weights(matrix: pd.DataFrame) -> dict[str, float]:
+    """CRITIC客观赋权法 (Diakoulaki et al., 1995).
+
+    对比强度用各列标准差衡量，信息冲突性用 1 - Pearson相关系数衡量，
+    两者乘积为信息量 C_j，归一化后得到客观权重。
+    """
+    standardized = (matrix - matrix.mean()) / matrix.std(ddof=1).replace(0, 1e-12)
+    sigma = standardized.std(ddof=1)  # 对比强度
+    corr = standardized.corr()
+    conflict = (1 - corr).sum()       # 信息冲突性
+    information = sigma * conflict     # 信息量 C_j
+    weights = information / information.sum()
+    return weights.to_dict()
+
+
 def lipid_excess_ratio(value: float, lower: float, upper: float) -> float:
     if value < lower:
         return (lower - value) / max(lower, 1e-6)
