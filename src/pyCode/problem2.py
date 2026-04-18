@@ -1,515 +1,511 @@
+# -*- coding: utf-8 -*-
 """
-问题2（修订版 V2）：高血脂症三级风险预警
-======================================
-设计理念：
-  ① 规避旧版"概率分位切分"的两个陷阱：标签泄漏污染、样本依赖阈值；
-  ② 采用"硬规则层 + 双轴可解释评分卡"的双层预警体系；
-  ③ 以 Apriori 关联规则代替单一决策树，挖掘痰湿体质高风险核心组合；
-  ④ 增加"校准曲线 / Bootstrap 稳定性 / 敏感性分析"三重验证。
+Problem 2: three-level hyperlipidemia risk warning model (v3).
 
-模型结构：
-  Step A: 硬规则层（3 条 if-then，直接判高风险，完全匹配题干示例）
-    R1: 血脂异常项数 ≥ 2   → 高风险
-    R2: 血脂异常 ≥1 项 且 痰湿积分 ≥ 60   → 高风险（题干例 1）
-    R3: 痰湿积分 ≥ 80 且 活动量表 < 40   → 高风险（题干例 2）
-  Step B: 双轴评分层（仅对硬规则未触发者）
-    S_clin 临床严重度 (0–7)  — 基于 2016 中国血脂指南阈值
-    S_prog 进展风险 (0–9)    — 基于中医体质 + ASCVD 流行病学因素
-    S_total = S_clin + S_prog ∈ [0, 15]
-    阈值: S ≤ 2 → 低; 3 ≤ S ≤ 5 → 中; S ≥ 6 → 高
-  Step C: Apriori 关联规则挖掘痰湿体质高风险核心组合
-  Step D: 三项验证（校准 / Bootstrap / 敏感性）
+This version follows the current paper logic:
+- hard-rule layer keeps only R1 (blood-lipid abnormal items >= 2);
+- R2/R3 are documented as rejected candidates, not executed as hard rules;
+- score layer uses S_clin in [0, 7], S_prog in [0, 11], S_total in [0, 18];
+- final score cutoffs are {2, 6}.
 """
+
 from __future__ import annotations
-import warnings
+
+from itertools import combinations
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib import gridspec
-from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.preprocessing import StandardScaler
 
 from common import configure_plotting, figure_path, load_data, set_random_seed, table_path
 
-warnings.filterwarnings("ignore")
+
 configure_plotting()
 set_random_seed()
 
-# =====================================================================
-# 基础工具
-# =====================================================================
-
-def count_abnormal(r: pd.Series) -> int:
-    """血脂异常项数（与诊断标签定义 100% 一致）。"""
-    c = 0
-    if r["TC（总胆固醇）"] > 6.2: c += 1
-    if r["TG（甘油三酯）"] > 1.7: c += 1
-    if r["LDL-C（低密度脂蛋白）"] > 3.1: c += 1
-    if r["HDL-C（高密度脂蛋白）"] < 1.04: c += 1
-    return c
+RNG = np.random.default_rng(42)
+LOW_CUT = 2
+HIGH_CUT = 6
 
 
-def s_clin_func(r: pd.Series) -> int:
-    """临床严重度 S_clin ∈ [0, 7]。依据：《中国成人血脂异常防治指南(2016)》。"""
-    s = 0
-    tc = r["TC（总胆固醇）"]
-    tg = r["TG（甘油三酯）"]
-    ldl = r["LDL-C（低密度脂蛋白）"]
-    hdl = r["HDL-C（高密度脂蛋白）"]
-    if tc > 7.2: s += 2
-    elif tc > 6.2: s += 1
-    if tg > 2.3: s += 2
-    elif tg > 1.7: s += 1
-    if ldl > 4.1: s += 2
-    elif ldl > 3.1: s += 1
-    if hdl < 1.04: s += 1
-    return s
+def count_abnormal(df: pd.DataFrame) -> pd.Series:
+    """Count lipid abnormalities using the 2016 Chinese guideline thresholds."""
+    return (
+        (df["TC（总胆固醇）"] > 6.2).astype(int)
+        + (df["TG（甘油三酯）"] > 1.7).astype(int)
+        + (df["LDL-C（低密度脂蛋白）"] > 3.1).astype(int)
+        + (df["HDL-C（高密度脂蛋白）"] < 1.04).astype(int)
+    )
 
 
-def s_prog_func(r: pd.Series) -> int:
-    """进展风险 S_prog ∈ [0, 9]。
-    依据：中医体质学痰湿分级 + WHO/中国 BMI 分级 + ASCVD 流行病学危险因素。
-    """
-    s = 0
-    phl = r["痰湿质"]
-    bmi = r["BMI"]
-    act = r["活动量表总分（ADL总分+IADL总分）"]
-    age = int(r["年龄组"])
-    sex = int(r["性别"])  # 1 = 男
-    smk = int(r["吸烟史"])
-
-    # 痰湿积分（三档）
-    if phl >= 80:        s += 3
-    elif phl >= 60:      s += 2
-    elif phl >= 40:      s += 1
-    # BMI（两档）
-    if bmi >= 28:        s += 2
-    elif bmi >= 24:      s += 1
-    # 活动量表低
-    if act < 40:         s += 1
-    # 年龄 ≥60
-    if age >= 3:         s += 1
-    # 男性（心血管独立危险因素）
-    if sex == 1:         s += 1
-    # 吸烟
-    if smk == 1:         s += 1
-    return s
+def clinical_score(df: pd.DataFrame) -> pd.Series:
+    """Clinical severity score S_clin in [0, 7]."""
+    return (
+        (df["TC（总胆固醇）"] > 6.2).astype(int)
+        + (df["TC（总胆固醇）"] > 7.2).astype(int)
+        + (df["TG（甘油三酯）"] > 1.7).astype(int)
+        + (df["TG（甘油三酯）"] > 2.3).astype(int)
+        + (df["LDL-C（低密度脂蛋白）"] > 3.1).astype(int)
+        + (df["LDL-C（低密度脂蛋白）"] > 4.1).astype(int)
+        + (df["HDL-C（高密度脂蛋白）"] < 1.04).astype(int)
+    )
 
 
-def hard_rule_trigger(r: pd.Series) -> tuple[int, str]:
-    """硬规则层：返回 (触发规则号 0=未触发, 1/2/3=R1/R2/R3)."""
-    n = r["血脂异常项数"]; phl = r["痰湿质"]
-    act = r["活动量表总分（ADL总分+IADL总分）"]
-    if n >= 2:
-        return 1, "R1 血脂异常≥2项"
-    if n >= 1 and phl >= 60:
-        return 2, "R2 血脂异常≥1 且 痰湿积分≥60"
-    if phl >= 80 and act < 40:
-        return 3, "R3 痰湿积分≥80 且 活动量表<40"
-    return 0, "未触发"
+def progression_score(df: pd.DataFrame) -> pd.Series:
+    """Progression risk score S_prog in [0, 11]."""
+    phlegm = df["痰湿质"]
+    bmi = df["BMI"]
+    activity = df["活动量表总分（ADL总分+IADL总分）"]
+    age_group = df["年龄组"].astype(int)
+
+    phlegm_score = np.select(
+        [phlegm >= 80, phlegm >= 60, phlegm >= 40],
+        [3, 2, 1],
+        default=0,
+    )
+    bmi_score = np.select(
+        [bmi >= 28, bmi >= 24],
+        [2, 1],
+        default=0,
+    )
+    activity_score = np.select(
+        [activity < 40, activity < 60],
+        [2, 1],
+        default=0,
+    )
+    age_score = age_group.map({1: 0, 2: 0, 3: 1, 4: 2, 5: 2}).fillna(0).astype(int)
+
+    return (
+        pd.Series(phlegm_score, index=df.index)
+        + pd.Series(bmi_score, index=df.index)
+        + pd.Series(activity_score, index=df.index)
+        + age_score
+        + df["性别"].astype(int)
+        + df["吸烟史"].astype(int)
+    )
 
 
-def classify_score(s: int, t_low: int = 2, t_high: int = 5) -> int:
-    """评分层分层：S ≤ t_low 低；t_low < S ≤ t_high 中；S > t_high 高。"""
-    if s <= t_low:   return 1  # 低
-    if s <= t_high:  return 2  # 中
-    return 3                    # 高
+def stratify(hard: pd.Series | np.ndarray, score: pd.Series | np.ndarray, low: int, high: int) -> np.ndarray:
+    """Return 1=low, 2=medium, 3=high."""
+    score_arr = np.asarray(score)
+    hard_arr = np.asarray(hard, dtype=bool)
+    out = np.ones_like(score_arr, dtype=int)
+    out[score_arr > low] = 2
+    out[score_arr >= high] = 3
+    out[hard_arr] = 3
+    return out
 
 
-def final_risk(r: pd.Series, t_low: int = 2, t_high: int = 5) -> int:
-    """最终风险等级：硬规则触发→3；否则用评分层。"""
-    rule_id, _ = hard_rule_trigger(r)
-    if rule_id > 0:
-        return 3
-    return classify_score(r["S_total"], t_low, t_high)
+def level_name(level: int) -> str:
+    return {1: "低", 2: "中", 3: "高"}[int(level)]
 
 
-# =====================================================================
-# Step 1: 数据与特征准备
-# =====================================================================
+def make_apriori_rules(items: pd.DataFrame, outcome: np.ndarray) -> pd.DataFrame:
+    """Small, dependency-free Apriori-style enumeration for high-risk antecedents."""
+    item_names = list(items.columns)
+    matrix = items.to_numpy(dtype=bool)
+    high = np.asarray(outcome, dtype=bool)
+    support_high = high.mean()
+    min_support = 0.10
+    min_confidence = 0.90
+    min_lift = 1.05
+    max_items = 4
 
-df = load_data()
-df["血脂异常项数"] = df.apply(count_abnormal, axis=1)
-df["S_clin"] = df.apply(s_clin_func, axis=1)
-df["S_prog"] = df.apply(s_prog_func, axis=1)
-df["S_total"] = df["S_clin"] + df["S_prog"]
+    def is_redundant(names: list[str]) -> bool:
+        names_set = set(names)
+        mutually_exclusive = [
+            {"活动<40", "活动40-59"},
+            {"BMI超重", "BMI肥胖"},
+            {"年龄60-69", "年龄≥70"},
+        ]
+        if any(len(names_set & group) >= 2 for group in mutually_exclusive):
+            return True
+        if "血脂异常≥1" in names_set and "血脂异常≥2" in names_set:
+            return True
+        if "血脂异常≥1" in names_set and names_set & {"TG升高", "TC升高", "LDL升高", "HDL偏低"}:
+            return True
+        return False
 
-# 硬规则触发
-rule_info = df.apply(hard_rule_trigger, axis=1)
-df["硬规则编号"] = rule_info.map(lambda x: x[0])
-df["硬规则描述"] = rule_info.map(lambda x: x[1])
+    rules: list[dict[str, object]] = []
+    for size in range(1, max_items + 1):
+        for combo in combinations(range(len(item_names)), size):
+            names = [item_names[index] for index in combo]
+            if is_redundant(names):
+                continue
 
-# 最终分层
-df["最终风险"] = df.apply(final_risk, axis=1)
-df["风险等级"] = df["最终风险"].map({1: "低风险", 2: "中风险", 3: "高风险"})
-n = len(df)
+            antecedent = matrix[:, list(combo)].all(axis=1)
+            support = antecedent.mean()
+            if support < min_support:
+                continue
 
-# =====================================================================
-# Step 2: 分层结果统计
-# =====================================================================
-print("=" * 66); print("Step 2: 三级分层结果"); print("=" * 66)
+            support_joint = (antecedent & high).mean()
+            confidence = support_joint / support
+            lift = confidence / support_high if support_high > 0 else 0.0
+            if confidence >= min_confidence and lift >= min_lift:
+                rules.append(
+                    {
+                        "组合": " ∧ ".join(names),
+                        "项数": size,
+                        "人数": int(antecedent.sum()),
+                        "支持度": round(float(support), 3),
+                        "置信度": round(float(confidence), 3),
+                        "提升度": round(float(lift), 3),
+                    }
+                )
 
-risk_counts = df["风险等级"].value_counts().reindex(["低风险", "中风险", "高风险"])
-print("\n三级风险分布：")
-print(risk_counts)
+    if not rules:
+        return pd.DataFrame(columns=["组合", "项数", "人数", "支持度", "置信度", "提升度"])
 
-risk_stat = df.groupby("风险等级", observed=True).agg(
-    人数=("样本ID", "count"),
-    实际发病率=("高血脂症二分类标签", "mean"),
-    平均S_clin=("S_clin", "mean"),
-    平均S_prog=("S_prog", "mean"),
-    平均S_total=("S_total", "mean"),
-    平均痰湿=("痰湿质", "mean"),
-    平均活动=("活动量表总分（ADL总分+IADL总分）", "mean"),
-    平均BMI=("BMI", "mean"),
-).reindex(["低风险", "中风险", "高风险"]).round(3)
-print("\n各层特征均值：")
-print(risk_stat)
-risk_stat.to_csv(table_path("Q2_risk_stat.csv"), encoding="utf-8-sig")
+    return (
+        pd.DataFrame(rules)
+        .sort_values(["项数", "人数"], ascending=[True, False])
+        .reset_index(drop=True)
+    )
 
-# 硬规则触发统计
-print("\n硬规则触发分布：")
-print(df["硬规则描述"].value_counts())
-rule_trigger = df.groupby("硬规则描述")["高血脂症二分类标签"].agg(["count", "mean"]).round(3)
-rule_trigger.to_csv(table_path("Q2_hard_rule_trigger.csv"), encoding="utf-8-sig")
 
-# 诊断交叉表
-print("\n诊断标签 × 风险等级 交叉表：")
-print(pd.crosstab(df["高血脂症二分类标签"], df["风险等级"]))
-
-# =====================================================================
-# Step 3: 校准曲线（S_total vs 实际发病率）
-# =====================================================================
-print("\n" + "=" * 66); print("Step 3: 校准曲线"); print("=" * 66)
-
-cal = df.groupby("S_total")["高血脂症二分类标签"].agg(["count", "mean"])
-cal_percent = cal.copy()
-cal_percent["mean"] = (cal_percent["mean"] * 100).round(1)
-print("\nS_total 与发病率对应表（%）：")
-print(cal_percent.rename(columns={"count": "人数", "mean": "发病率(%)"}))
-cal_percent.to_csv(table_path("Q2_calibration.csv"), encoding="utf-8-sig")
-
-# AUC
-auc_total = roc_auc_score(df["高血脂症二分类标签"], df["S_total"])
-auc_clin = roc_auc_score(df["高血脂症二分类标签"], df["S_clin"])
-auc_prog = roc_auc_score(df["高血脂症二分类标签"], df["S_prog"])
-print(f"\nS_clin AUC  = {auc_clin:.4f}")
-print(f"S_prog AUC  = {auc_prog:.4f}")
-print(f"S_total AUC = {auc_total:.4f}")
-
-# =====================================================================
-# Step 4: Bootstrap 稳定性（1000 次）
-# =====================================================================
-print("\n" + "=" * 66); print("Step 4: Bootstrap 稳定性 (1000 次)"); print("=" * 66)
-
-rng = np.random.default_rng(42)
-B = 1000
-boot_dist = {"low_pct": [], "mid_pct": [], "high_pct": [],
-             "low_rate": [], "mid_rate": [], "high_rate": []}
-for b in range(B):
-    idx = rng.integers(0, n, size=n)
-    sb = df.iloc[idx]
-    for lv, key_p, key_r in [(1, "low_pct", "low_rate"),
-                              (2, "mid_pct", "mid_rate"),
-                              (3, "high_pct", "high_rate")]:
-        mask = sb["最终风险"] == lv
-        boot_dist[key_p].append(mask.mean() * 100)
-        boot_dist[key_r].append(
-            sb.loc[mask, "高血脂症二分类标签"].mean() * 100 if mask.any() else np.nan
+def save_main_outputs(df: pd.DataFrame) -> None:
+    risk_summary = []
+    for level in [1, 2, 3]:
+        mask = df["risk_level"] == level
+        risk_summary.append(
+            {
+                "等级": level_name(level),
+                "人数": int(mask.sum()),
+                "占比%": round(mask.mean() * 100, 1),
+                "发病率%": round(df.loc[mask, "高血脂症二分类标签"].mean() * 100, 1),
+            }
         )
+    pd.DataFrame(risk_summary).to_csv(table_path("Q2_risk_stat.csv"), index=False, encoding="utf-8-sig")
+    pd.DataFrame(risk_summary).to_csv(
+        table_path("Q2_stratification_summary.csv"), index=False, encoding="utf-8-sig"
+    )
 
-boot_summary = pd.DataFrame({
-    "指标": ["低风险占比(%)", "中风险占比(%)", "高风险占比(%)",
-             "低层发病率(%)", "中层发病率(%)", "高层发病率(%)"],
-    "均值": [np.mean(boot_dist[k]) for k in ["low_pct", "mid_pct", "high_pct",
-                                              "low_rate", "mid_rate", "high_rate"]],
-    "2.5%": [np.percentile(boot_dist[k], 2.5) for k in ["low_pct", "mid_pct", "high_pct",
-                                                         "low_rate", "mid_rate", "high_rate"]],
-    "97.5%": [np.percentile(boot_dist[k], 97.5) for k in ["low_pct", "mid_pct", "high_pct",
-                                                           "low_rate", "mid_rate", "high_rate"]],
-}).round(2)
-print(boot_summary.to_string(index=False))
-boot_summary.to_csv(table_path("Q2_bootstrap_CI.csv"), encoding="utf-8-sig", index=False)
+    calibration = (
+        df.groupby("S_total")["高血脂症二分类标签"]
+        .agg(n="count", **{"prevalence%": lambda item: item.mean() * 100})
+        .reset_index()
+    )
+    calibration["prevalence%"] = calibration["prevalence%"].round(1)
+    calibration.to_csv(table_path("Q2_calibration.csv"), index=False, encoding="utf-8-sig")
 
-# =====================================================================
-# Step 5: 敏感性分析（权重 ±25% & 阈值扰动）
-# =====================================================================
-print("\n" + "=" * 66); print("Step 5: 敏感性分析"); print("=" * 66)
+    full_cols = [
+        "样本ID",
+        "S_clin",
+        "S_prog",
+        "S_total",
+        "R1",
+        "hard_trigger",
+        "risk_level",
+        "高血脂症二分类标签",
+    ]
+    full = df[full_cols].rename(columns={"高血脂症二分类标签": "y"})
+    full.to_csv(table_path("Q2_stratification_full.csv"), index=False, encoding="utf-8-sig")
 
-base_risk = df["最终风险"].values
 
-def compute_risk_with_prog_scale(scale: float) -> np.ndarray:
-    """把 S_prog 乘以 scale 后重新分层，硬规则不变。"""
-    new_prog = (df["S_prog"] * scale).round().astype(int)
-    new_total = df["S_clin"] + new_prog
-    rule_ids = df["硬规则编号"].values
-    out = np.zeros(n, dtype=int)
-    s_arr = new_total.values
-    for i in range(n):
-        if rule_ids[i] > 0:
-            out[i] = 3
-        else:
-            s = s_arr[i]
-            if s <= 2: out[i] = 1
-            elif s <= 5: out[i] = 2
-            else: out[i] = 3
-    return out
+def bootstrap_summary(risk_level: np.ndarray, y: np.ndarray) -> pd.DataFrame:
+    records = {"low_pct": [], "med_pct": [], "high_pct": [], "low_prev": [], "med_prev": [], "high_prev": []}
+    n = len(y)
+    for _ in range(1000):
+        idx = RNG.integers(0, n, n)
+        sampled_risk = risk_level[idx]
+        sampled_y = y[idx]
+        for level, key in [(1, "low"), (2, "med"), (3, "high")]:
+            mask = sampled_risk == level
+            records[f"{key}_pct"].append(mask.mean() * 100)
+            records[f"{key}_prev"].append(sampled_y[mask].mean() * 100 if mask.any() else np.nan)
 
-def compute_risk_with_threshold(t_low: int, t_high: int) -> np.ndarray:
-    rule_ids = df["硬规则编号"].values
-    s_tot = df["S_total"].values
-    out = np.zeros(n, dtype=int)
-    for i in range(n):
-        if rule_ids[i] > 0:
-            out[i] = 3
-        else:
-            s = s_tot[i]
-            if s <= t_low: out[i] = 1
-            elif s <= t_high: out[i] = 2
-            else: out[i] = 3
-    return out
+    rows = []
+    labels = {
+        "low_pct": "低风险占比(%)",
+        "med_pct": "中风险占比(%)",
+        "high_pct": "高风险占比(%)",
+        "low_prev": "低层发病率(%)",
+        "med_prev": "中层发病率(%)",
+        "high_prev": "高层发病率(%)",
+    }
+    for key in ["low_pct", "med_pct", "high_pct", "low_prev", "med_prev", "high_prev"]:
+        values = np.asarray(records[key], dtype=float)
+        values = values[~np.isnan(values)]
+        rows.append(
+            {
+                "指标": labels[key],
+                "均值": round(float(values.mean()), 2),
+                "2.5%": round(float(np.percentile(values, 2.5)), 2),
+                "97.5%": round(float(np.percentile(values, 97.5)), 2),
+            }
+        )
+    return pd.DataFrame(rows)
 
-sens_rows = []
-for label, new_r in [
-    ("S_prog 权重 ×0.75", compute_risk_with_prog_scale(0.75)),
-    ("S_prog 权重 ×1.25", compute_risk_with_prog_scale(1.25)),
-    ("阈值 (1, 5)",       compute_risk_with_threshold(1, 5)),
-    ("阈值 (3, 5)",       compute_risk_with_threshold(3, 5)),
-    ("阈值 (2, 4)",       compute_risk_with_threshold(2, 4)),
-    ("阈值 (2, 6)",       compute_risk_with_threshold(2, 6)),
-]:
-    agree = (new_r == base_risk).mean() * 100
-    sens_rows.append({"扰动": label, "一致率(%)": round(agree, 2),
-                      "低(%)": round((new_r == 1).mean() * 100, 2),
-                      "中(%)": round((new_r == 2).mean() * 100, 2),
-                      "高(%)": round((new_r == 3).mean() * 100, 2)})
-sens_df = pd.DataFrame(sens_rows)
-print(sens_df.to_string(index=False))
-sens_df.to_csv(table_path("Q2_sensitivity.csv"), encoding="utf-8-sig", index=False)
 
-# =====================================================================
-# Step 6: 痰湿体质 Apriori 关联规则
-# =====================================================================
-print("\n" + "=" * 66); print("Step 6: 痰湿体质 Apriori 关联规则"); print("=" * 66)
+def sensitivity_summary(df: pd.DataFrame) -> tuple[pd.DataFrame, list[tuple[str, np.ndarray]]]:
+    base = df["risk_level"].to_numpy()
+    hard = df["hard_trigger"].to_numpy(dtype=bool)
+    s_clin = df["S_clin"].to_numpy()
+    s_prog = df["S_prog"].to_numpy()
 
-try:
-    from mlxtend.frequent_patterns import apriori, association_rules
-    MLXTEND_OK = True
-except Exception as e:
-    print(f"[WARN] mlxtend 不可用，跳过 Apriori: {e}")
-    MLXTEND_OK = False
+    def with_scaled_progression(scale: float) -> np.ndarray:
+        scaled_prog = np.round(s_prog * scale).astype(int)
+        return stratify(hard, s_clin + scaled_prog, LOW_CUT, HIGH_CUT)
 
-dft = df[df["体质标签"] == 5].copy()
-print(f"痰湿体质样本数: {len(dft)}  高风险: {(dft['最终风险']==3).sum()} 人")
+    def with_thresholds(low: int, high: int) -> np.ndarray:
+        return stratify(hard, df["S_total"].to_numpy(), low, high)
 
-top_rules = pd.DataFrame()
-if MLXTEND_OK:
-    items = pd.DataFrame({
-        "痰湿≥60":          (dft["痰湿质"] >= 60).values,
-        "BMI超重":          (dft["BMI"] >= 24).values,
-        "BMI肥胖":          (dft["BMI"] >= 28).values,
-        "活动<50":          (dft["活动量表总分（ADL总分+IADL总分）"] < 50).values,
-        "活动<40":          (dft["活动量表总分（ADL总分+IADL总分）"] < 40).values,
-        "年龄≥60":          (dft["年龄组"] >= 3).values,
-        "男性":              (dft["性别"] == 1).values,
-        "吸烟":              (dft["吸烟史"] == 1).values,
-        "血脂异常≥1":        (dft["血脂异常项数"] >= 1).values,
-        "血脂异常≥2":        (dft["血脂异常项数"] >= 2).values,
-        "TG升高":           (dft["TG（甘油三酯）"] > 1.7).values,
-        "TC升高":           (dft["TC（总胆固醇）"] > 6.2).values,
-        "HDL偏低":           (dft["HDL-C（高密度脂蛋白）"] < 1.04).values,
-        "高风险":            (dft["最终风险"] == 3).values,
-    })
+    scenarios = [
+        ("baseline", base),
+        ("S_prog x0.75", with_scaled_progression(0.75)),
+        ("S_prog x1.25", with_scaled_progression(1.25)),
+        ("cut(1,6)", with_thresholds(1, 6)),
+        ("cut(3,6)", with_thresholds(3, 6)),
+        ("cut(2,5)", with_thresholds(2, 5)),
+        ("cut(2,7)", with_thresholds(2, 7)),
+    ]
 
-    freq = apriori(items, min_support=0.10, use_colnames=True, max_len=4)
-    rules = association_rules(freq, metric="confidence", min_threshold=0.9)
-    # 仅保留结论为 "高风险"、前件不含高风险的规则
-    rules = rules[rules["consequents"].apply(lambda x: "高风险" in x and len(x) == 1)]
-    rules = rules[rules["antecedents"].apply(lambda x: "高风险" not in x)]
-    rules = rules[rules["lift"] >= 1.1]
-    rules = rules.sort_values(by=["lift", "support"], ascending=[False, False])
+    rows = []
+    for name, risk in scenarios:
+        rows.append(
+            {
+                "scenario": name,
+                "agree%": round(float((risk == base).mean() * 100), 1),
+                "low%": round(float((risk == 1).mean() * 100), 1),
+                "med%": round(float((risk == 2).mean() * 100), 1),
+                "high%": round(float((risk == 3).mean() * 100), 1),
+            }
+        )
+    return pd.DataFrame(rows), scenarios
 
-    def fmt_set(s):
-        return " ∧ ".join(sorted(s))
-    rules_out = pd.DataFrame({
-        "核心组合": rules["antecedents"].apply(fmt_set),
-        "支持度": rules["support"].round(3),
-        "置信度": rules["confidence"].round(3),
-        "提升度": rules["lift"].round(3),
-        "组合项数": rules["antecedents"].apply(len).values,
-    })
-    top_rules = rules_out.groupby("组合项数", group_keys=False).head(6)
-    print("\nApriori 关联规则 (前件组合 → 高风险; 最多4项)：")
-    print(top_rules.head(15).to_string(index=False))
-    top_rules.to_csv(table_path("Q2_apriori_rules.csv"), encoding="utf-8-sig", index=False)
 
-# 决策树对比（保留原版，用于论文图）
-from sklearn.tree import DecisionTreeClassifier, export_text, plot_tree
-tree_feats = ["痰湿质", "活动量表总分（ADL总分+IADL总分）", "TG（甘油三酯）", "TC（总胆固醇）",
-              "LDL-C（低密度脂蛋白）", "HDL-C（高密度脂蛋白）", "BMI", "血尿酸", "年龄组"]
-Xt = dft[tree_feats].values
-yt = (dft["最终风险"] == 3).astype(int).values
-tree = DecisionTreeClassifier(max_depth=4, min_samples_leaf=15, random_state=42)
-tree.fit(Xt, yt)
-rules_text = export_text(tree, feature_names=tree_feats)
-table_path("Q2_tree_rules.txt").write_text(rules_text, encoding="utf-8")
+def method_comparison(df: pd.DataFrame) -> pd.DataFrame:
+    set_c_cols = [
+        "TC（总胆固醇）",
+        "TG（甘油三酯）",
+        "LDL-C（低密度脂蛋白）",
+        "HDL-C（高密度脂蛋白）",
+        "空腹血糖",
+        "血尿酸",
+        "BMI",
+        "ADL用厕",
+        "ADL吃饭",
+        "ADL步行",
+        "ADL穿衣",
+        "ADL洗澡",
+        "IADL购物",
+        "IADL做饭",
+        "IADL理财",
+        "IADL交通",
+        "IADL服药",
+    ]
+    y = df["高血脂症二分类标签"].to_numpy()
+    features = StandardScaler().fit_transform(df[set_c_cols].to_numpy())
+    model = LogisticRegression(max_iter=1000, random_state=42).fit(features, y)
+    probabilities = model.predict_proba(features)[:, 1]
+    q33, q67 = np.quantile(probabilities, [1 / 3, 2 / 3])
+    quantile_risk = np.where(probabilities >= q67, 3, np.where(probabilities >= q33, 2, 1))
 
-# =====================================================================
-# Step 7: 六面板可视化（Q2_summary_v2.png）
-# =====================================================================
-print("\n" + "=" * 66); print("Step 7: 六面板可视化"); print("=" * 66)
+    rows = []
+    for name, risk in [
+        ("直接概率分位切分", quantile_risk),
+        ("硬规则+双轴评分卡(本方案)", df["risk_level"].to_numpy()),
+    ]:
+        row = {"方法": name}
+        for level, column in [(1, "低风险"), (2, "中风险"), (3, "高风险")]:
+            mask = risk == level
+            row[column] = f"n={int(mask.sum())} ({mask.mean()*100:.1f}%), p={y[mask].mean()*100:.1f}%"
+        rows.append(row)
+    return pd.DataFrame(rows)
 
-fig = plt.figure(figsize=(16, 11))
-gs = gridspec.GridSpec(2, 3, figure=fig, hspace=0.38, wspace=0.32)
 
-# (a) 校准曲线
-ax = fig.add_subplot(gs[0, 0])
-ax.plot(cal_percent.index, cal_percent["mean"], "o-", color="steelblue", lw=2, markersize=6)
-for s_val, row in cal_percent.iterrows():
-    ax.annotate(f"n={int(row['count'])}", (s_val, row["mean"]),
-                xytext=(0, 7), textcoords="offset points",
-                ha="center", fontsize=7, color="gray")
-ax.axvline(2.5, color="green", ls="--", alpha=0.7, label="Low/Med cut")
-ax.axvline(5.5, color="red", ls="--", alpha=0.7, label="Med/High cut")
-ax.set_xlabel("S_total"); ax.set_ylabel("Observed prevalence (%)")
-ax.set_title("(a) Calibration curve (monotone)")
-ax.set_ylim(-5, 108)
-ax.grid(alpha=0.3); ax.legend(fontsize=8, loc="lower right")
+def save_visualization(
+    df: pd.DataFrame,
+    calibration: pd.DataFrame,
+    boot: pd.DataFrame,
+    sensitivity: pd.DataFrame,
+    scenarios: list[tuple[str, np.ndarray]],
+) -> None:
+    y = df["高血脂症二分类标签"].to_numpy()
+    auc_clin = roc_auc_score(y, df["S_clin"])
+    auc_prog = roc_auc_score(y, df["S_prog"])
+    auc_total = roc_auc_score(y, df["S_total"])
 
-# (b) 三级分层与发病率
-ax = fig.add_subplot(gs[0, 1])
-rd = df.groupby("风险等级")["高血脂症二分类标签"].agg(["count", "mean"]).reindex(
-    ["低风险", "中风险", "高风险"])
-x = np.arange(3); ax2 = ax.twinx()
-ax.bar(x - 0.2, rd["count"], 0.4, color="skyblue", label="# cases")
-ax2.bar(x + 0.2, rd["mean"] * 100, 0.4, color="salmon", label="prevalence %")
-for i, (c, m) in enumerate(zip(rd["count"], rd["mean"])):
-    ax.text(i - 0.2, c + 15, f"{int(c)}", ha="center", fontsize=9)
-    ax2.text(i + 0.2, m * 100 + 3, f"{m*100:.1f}%", ha="center", fontsize=9, color="darkred")
-ax.set_xticks(x); ax.set_xticklabels(["Low", "Medium", "High"])
-ax.set_ylabel("# cases")
-ax2.set_ylabel("prevalence (%)"); ax2.set_ylim(0, 115)
-ax.set_title("(b) Three-level risk stratification")
-ax.legend(loc="upper left", fontsize=8)
-ax2.legend(loc="upper right", fontsize=8)
+    fig, axes = plt.subplots(2, 3, figsize=(18, 11))
+    fig.suptitle("Problem 2: Hard-rule + Two-Axis Score Card - Verification Summary (v3)", fontsize=13)
 
-# (c) S_clin × S_prog 发病率热图
-ax = fig.add_subplot(gs[0, 2])
-pivot = df.pivot_table(index="S_prog", columns="S_clin",
-                        values="高血脂症二分类标签", aggfunc="mean")
-# 用 cnt_pivot 标注人数
-cnt_pivot = df.pivot_table(index="S_prog", columns="S_clin",
-                            values="高血脂症二分类标签", aggfunc="count")
-im = ax.imshow(pivot.values, cmap="RdYlGn_r", aspect="auto",
-               origin="lower", vmin=0, vmax=1)
-ax.set_xticks(range(len(pivot.columns))); ax.set_xticklabels(pivot.columns)
-ax.set_yticks(range(len(pivot.index))); ax.set_yticklabels(pivot.index)
-for i in range(pivot.shape[0]):
-    for j in range(pivot.shape[1]):
-        c = cnt_pivot.values[i, j]
-        if not np.isnan(c) and c > 0:
-            ax.text(j, i, f"{int(c)}", ha="center", va="center",
-                    fontsize=6, color="black")
-ax.set_xlabel("S_clin"); ax.set_ylabel("S_prog")
-ax.set_title("(c) Prevalence heatmap: S_clin × S_prog")
-plt.colorbar(im, ax=ax, fraction=0.046, label="prevalence")
+    ax = axes[0, 0]
+    ax.plot(calibration["S_total"], calibration["prevalence%"], "-o", color="#1f77b4")
+    ax.axvline(LOW_CUT + 0.5, ls="--", c="green", alpha=0.7, label="Low/Med cut")
+    ax.axvline(HIGH_CUT - 0.5, ls="--", c="red", alpha=0.7, label="Med/High cut")
+    for _, row in calibration.iterrows():
+        ax.annotate(f"n={int(row['n'])}", (row["S_total"], row["prevalence%"]), fontsize=7, xytext=(3, 3), textcoords="offset points")
+    ax.set_title("(a) Calibration curve (monotone)")
+    ax.set_xlabel("S_total")
+    ax.set_ylabel("Observed prevalence (%)")
+    ax.legend(fontsize=8)
+    ax.grid(alpha=0.3)
 
-# (d) ROC：S_clin / S_prog / S_total
-ax = fig.add_subplot(gs[1, 0])
-for name, score, auc in [("S_clin", df["S_clin"], auc_clin),
-                         ("S_prog", df["S_prog"], auc_prog),
-                         ("S_total", df["S_total"], auc_total)]:
-    fpr, tpr, _ = roc_curve(df["高血脂症二分类标签"], score)
-    ax.plot(fpr, tpr, lw=1.8, label=f"{name} (AUC={auc:.3f})")
-ax.plot([0, 1], [0, 1], "k--", alpha=0.4)
-ax.set_xlabel("FPR"); ax.set_ylabel("TPR")
-ax.set_title("(d) ROC curves")
-ax.legend(fontsize=9); ax.grid(alpha=0.3)
+    ax = axes[0, 1]
+    labels = ["Low", "Medium", "High"]
+    counts = [(df["risk_level"] == level).sum() for level in [1, 2, 3]]
+    prevalences = [
+        df.loc[df["risk_level"] == level, "高血脂症二分类标签"].mean() * 100
+        for level in [1, 2, 3]
+    ]
+    x = np.arange(3)
+    width = 0.35
+    ax2 = ax.twinx()
+    ax.bar(x - width / 2, counts, width, label="# cases", color="#6ea8cf")
+    ax2.bar(x + width / 2, prevalences, width, label="prevalence %", color="#e07b5c")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylabel("# cases")
+    ax2.set_ylabel("prevalence (%)")
+    ax2.set_ylim(0, 115)
+    ax.set_title("(b) Three-level stratification")
+    for idx, (count, prevalence) in enumerate(zip(counts, prevalences)):
+        ax.text(idx - width / 2, count + 5, str(count), ha="center", fontsize=9)
+        ax2.text(idx + width / 2, prevalence + 1, f"{prevalence:.1f}%", ha="center", fontsize=9)
+    ax.legend(loc="upper left", fontsize=8)
+    ax2.legend(loc="upper right", fontsize=8)
 
-# (e) 高风险来源构成
-ax = fig.add_subplot(gs[1, 1])
-high_df = df[df["最终风险"] == 3].copy()
-def high_source(r):
-    rid = r["硬规则编号"]
-    if rid == 1: return "R1 blood-lipid ≥ 2"
-    if rid == 2: return "R2 blood-lipid + phlegm ≥ 60"
-    if rid == 3: return "R3 phlegm ≥ 80 & act < 40"
-    return "Score S ≥ 6"
-high_df["来源"] = high_df.apply(high_source, axis=1)
-src_cnt = high_df["来源"].value_counts()
-colors_src = ["#E74C3C", "#F39C12", "#27AE60", "#2980B9"]
-bars = ax.barh(range(len(src_cnt)), src_cnt.values,
-               color=colors_src[:len(src_cnt)])
-ax.set_yticks(range(len(src_cnt))); ax.set_yticklabels(src_cnt.index, fontsize=9)
-for i, v in enumerate(src_cnt.values):
-    pct = v / src_cnt.sum() * 100
-    ax.text(v + 8, i, f"{v} ({pct:.1f}%)", va="center", fontsize=8)
-ax.set_xlabel("# high-risk cases")
-ax.set_title(f"(e) High-risk trigger source (n={len(high_df)})")
-ax.set_xlim(0, src_cnt.max() * 1.28)
+    ax = axes[0, 2]
+    heat = df.pivot_table(index="S_prog", columns="S_clin", values="高血脂症二分类标签", aggfunc="mean")
+    im = ax.imshow(heat.values, origin="lower", cmap="RdYlGn_r", vmin=0, vmax=1, aspect="auto")
+    ax.set_xticks(range(len(heat.columns)))
+    ax.set_xticklabels(heat.columns)
+    ax.set_yticks(range(len(heat.index)))
+    ax.set_yticklabels(heat.index)
+    ax.set_xlabel("S_clin")
+    ax.set_ylabel("S_prog")
+    ax.set_title("(c) Prevalence heatmap: S_clin x S_prog")
+    for row in range(heat.shape[0]):
+        for col in range(heat.shape[1]):
+            value = heat.values[row, col]
+            if not np.isnan(value):
+                ax.text(col, row, f"{value*100:.0f}", ha="center", va="center", color="white" if value > 0.5 else "black", fontsize=7)
+    plt.colorbar(im, ax=ax, label="prevalence")
 
-# (f) 敏感性：权重扰动下三级占比
-ax = fig.add_subplot(gs[1, 2])
-labels_en = ["baseline", "S_prog×0.75", "S_prog×1.25",
-             "(1,5)", "(3,5)", "(2,4)", "(2,6)"]
-variants_r = [base_risk,
-              compute_risk_with_prog_scale(0.75),
-              compute_risk_with_prog_scale(1.25),
-              compute_risk_with_threshold(1, 5),
-              compute_risk_with_threshold(3, 5),
-              compute_risk_with_threshold(2, 4),
-              compute_risk_with_threshold(2, 6)]
-low_pct = [(r == 1).mean() * 100 for r in variants_r]
-mid_pct = [(r == 2).mean() * 100 for r in variants_r]
-high_pct = [(r == 3).mean() * 100 for r in variants_r]
-x_pos = np.arange(len(labels_en))
-ax.bar(x_pos, low_pct, label="Low", color="#2ECC71")
-ax.bar(x_pos, mid_pct, bottom=low_pct, label="Medium", color="#F39C12")
-ax.bar(x_pos, high_pct, bottom=np.array(low_pct) + np.array(mid_pct),
-       label="High", color="#E74C3C")
-ax.set_xticks(x_pos); ax.set_xticklabels(labels_en, rotation=30, ha="right", fontsize=8)
-ax.set_ylabel("Percentage (%)"); ax.set_ylim(0, 100)
-ax.set_title("(f) Sensitivity: composition stability")
-ax.legend(fontsize=8, loc="upper right")
+    ax = axes[1, 0]
+    for name, score, auc, color in [
+        ("S_clin", df["S_clin"], auc_clin, "#1f77b4"),
+        ("S_prog", df["S_prog"], auc_prog, "#d62728"),
+        ("S_total", df["S_total"], auc_total, "#2ca02c"),
+    ]:
+        fpr, tpr, _ = roc_curve(y, score)
+        ax.plot(fpr, tpr, label=f"{name} (AUC={auc:.3f})", color=color)
+    ax.plot([0, 1], [0, 1], "--", color="gray", alpha=0.6)
+    ax.set_xlabel("FPR")
+    ax.set_ylabel("TPR")
+    ax.set_title("(d) ROC curves")
+    ax.legend(fontsize=8)
+    ax.grid(alpha=0.3)
 
-plt.suptitle("Problem 2: Hard-rule + Two-Axis Score Card — Verification Summary",
-             fontsize=13, fontweight="bold", y=0.995)
-plt.savefig(figure_path("Q2_summary_v2.png"), dpi=150, bbox_inches="tight")
-plt.close()
+    ax = axes[1, 1]
+    source = {
+        "R1: lipid abn >= 2 (2016 guideline)": int(df["R1"].sum()),
+        "Score layer: S_total >= 6 (non-R1)": int(((df["S_total"] >= HIGH_CUT) & ~df["R1"].astype(bool)).sum()),
+    }
+    total_high = sum(source.values())
+    bars = ax.barh(list(source.keys()), list(source.values()), color="#b36b6b")
+    for bar, value in zip(bars, source.values()):
+        ax.text(value + 3, bar.get_y() + bar.get_height() / 2, f"{value} ({value/total_high*100:.1f}%)", va="center", fontsize=9)
+    ax.set_xlabel("# high-risk cases")
+    ax.set_title(f"(e) High-risk trigger source (n={total_high})")
+    ax.invert_yaxis()
 
-# =====================================================================
-# Step 8: 输出全量分层表与摘要
-# =====================================================================
-print("\n" + "=" * 66); print("Step 8: 输出全量表格"); print("=" * 66)
+    ax = axes[1, 2]
+    x = np.arange(len(sensitivity))
+    ax.bar(x, sensitivity["low%"], color="#6fbf73", label="Low")
+    ax.bar(x, sensitivity["med%"], bottom=sensitivity["low%"], color="#f0ad4e", label="Medium")
+    ax.bar(
+        x,
+        sensitivity["high%"],
+        bottom=sensitivity["low%"] + sensitivity["med%"],
+        color="#d9534f",
+        label="High",
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels([name for name, _ in scenarios], rotation=30, ha="right", fontsize=8)
+    ax.set_ylabel("%")
+    ax.set_title("(f) Sensitivity: composition stability")
+    ax.legend(fontsize=8, loc="lower right")
 
-out_cols = ["样本ID", "体质标签", "痰湿质", "活动量表总分（ADL总分+IADL总分）",
-            "TG（甘油三酯）", "TC（总胆固醇）", "LDL-C（低密度脂蛋白）",
-            "HDL-C（高密度脂蛋白）", "BMI", "年龄组", "性别", "吸烟史",
-            "血脂异常项数", "S_clin", "S_prog", "S_total",
-            "硬规则编号", "硬规则描述", "最终风险", "风险等级",
-            "高血脂症二分类标签"]
-df[out_cols].to_csv(table_path("Q2_stratification_full.csv"),
-                    encoding="utf-8-sig", index=False)
+    plt.tight_layout()
+    plt.savefig(figure_path("Q2_summary_v2.png"), dpi=140, bbox_inches="tight")
+    plt.close(fig)
 
-summary = pd.DataFrame({
-    "评价指标": ["S_clin AUC", "S_prog AUC", "S_total AUC",
-                 "低风险发病率(%)", "中风险发病率(%)", "高风险发病率(%)",
-                 "低层占比(%)", "中层占比(%)", "高层占比(%)",
-                 "硬规则触发总数", "R1 触发数", "R2 触发数", "R3 触发数"],
-    "数值": [f"{auc_clin:.4f}", f"{auc_prog:.4f}", f"{auc_total:.4f}",
-             f"{risk_stat.loc['低风险','实际发病率']*100:.1f}",
-             f"{risk_stat.loc['中风险','实际发病率']*100:.1f}",
-             f"{risk_stat.loc['高风险','实际发病率']*100:.1f}",
-             f"{risk_counts['低风险']/n*100:.1f}",
-             f"{risk_counts['中风险']/n*100:.1f}",
-             f"{risk_counts['高风险']/n*100:.1f}",
-             (df['硬规则编号']>0).sum(),
-             (df['硬规则编号']==1).sum(),
-             (df['硬规则编号']==2).sum(),
-             (df['硬规则编号']==3).sum()]
-})
-print("\n[最终摘要]")
-print(summary.to_string(index=False))
-summary.to_csv(table_path("Q2_summary_metrics.csv"),
-               encoding="utf-8-sig", index=False)
 
-print("\n[OK] Problem 2 V2 全部输出完成")
+def main() -> None:
+    df = load_data()
+    df["blood_lipid_abnormal_count"] = count_abnormal(df)
+    df["S_clin"] = clinical_score(df)
+    df["S_prog"] = progression_score(df)
+    df["S_total"] = df["S_clin"] + df["S_prog"]
+    df["R1"] = df["blood_lipid_abnormal_count"] >= 2
+    df["hard_trigger"] = df["R1"].astype(int)
+    df["risk_level"] = stratify(df["R1"], df["S_total"], LOW_CUT, HIGH_CUT)
+
+    y = df["高血脂症二分类标签"].to_numpy()
+    print("Problem 2 v3: R1-only + two-axis score card")
+    print(f"R1 triggers: {int(df['R1'].sum())}, prevalence={y[df['R1'].to_numpy()].mean()*100:.1f}%")
+
+    r1_uplift = df["R1"] & (df["S_total"] < HIGH_CUT)
+    print(f"R1 independent uplift: {int(r1_uplift.sum())}, prevalence={df.loc[r1_uplift, '高血脂症二分类标签'].mean()*100:.1f}%")
+
+    save_main_outputs(df)
+    calibration = pd.read_csv(table_path("Q2_calibration.csv"), encoding="utf-8-sig")
+
+    boot = bootstrap_summary(df["risk_level"].to_numpy(), y)
+    boot.to_csv(table_path("Q2_bootstrap_CI.csv"), index=False, encoding="utf-8-sig")
+
+    sensitivity, scenarios = sensitivity_summary(df)
+    sensitivity.to_csv(table_path("Q2_sensitivity.csv"), index=False, encoding="utf-8-sig")
+
+    method_compare = method_comparison(df)
+    method_compare.to_csv(table_path("Q2_method_compare.csv"), index=False, encoding="utf-8-sig")
+
+    phlegm_mask = df["体质标签"] == 5
+    phlegm_df = df.loc[phlegm_mask].copy()
+    apriori_items = pd.DataFrame(
+        {
+            "痰湿≥60": phlegm_df["痰湿质"] >= 60,
+            "活动<40": phlegm_df["活动量表总分（ADL总分+IADL总分）"] < 40,
+            "活动40-59": (phlegm_df["活动量表总分（ADL总分+IADL总分）"] >= 40)
+            & (phlegm_df["活动量表总分（ADL总分+IADL总分）"] < 60),
+            "BMI超重": (phlegm_df["BMI"] >= 24) & (phlegm_df["BMI"] < 28),
+            "BMI肥胖": phlegm_df["BMI"] >= 28,
+            "年龄60-69": phlegm_df["年龄组"] == 3,
+            "年龄≥70": phlegm_df["年龄组"] >= 4,
+            "男性": phlegm_df["性别"] == 1,
+            "吸烟": phlegm_df["吸烟史"] == 1,
+            "TG升高": phlegm_df["TG（甘油三酯）"] > 1.7,
+            "TC升高": phlegm_df["TC（总胆固醇）"] > 6.2,
+            "LDL升高": phlegm_df["LDL-C（低密度脂蛋白）"] > 3.1,
+            "HDL偏低": phlegm_df["HDL-C（高密度脂蛋白）"] < 1.04,
+            "血脂异常≥1": phlegm_df["blood_lipid_abnormal_count"] >= 1,
+            "血脂异常≥2": phlegm_df["blood_lipid_abnormal_count"] >= 2,
+        }
+    )
+    apriori_full = make_apriori_rules(apriori_items, phlegm_df["risk_level"].to_numpy() == 3)
+    apriori_full.to_csv(table_path("Q2_apriori_rules_full.csv"), index=False, encoding="utf-8-sig")
+
+    apriori_top = pd.concat(
+        [apriori_full[apriori_full["项数"] == size].head(4) for size in range(1, 5)],
+        ignore_index=True,
+    ).head(10)
+    apriori_top.to_csv(table_path("Q2_apriori_rules.csv"), index=False, encoding="utf-8-sig")
+
+    save_visualization(df, calibration, boot, sensitivity, scenarios)
+
+    risk_counts = df["risk_level"].value_counts().sort_index()
+    risk_prev = df.groupby("risk_level")["高血脂症二分类标签"].mean() * 100
+    print("Risk strata:")
+    for level in [1, 2, 3]:
+        print(f"  {level_name(level)}: n={int(risk_counts[level])}, prevalence={risk_prev[level]:.1f}%")
+    print(f"AUC(S_total)={roc_auc_score(y, df['S_total']):.3f}")
+    print(f"Minimum sensitivity agreement={sensitivity['agree%'].min():.1f}%")
+    print("Outputs written to src/outputs/tables and src/outputs/figures.")
+
+
+if __name__ == "__main__":
+    main()
