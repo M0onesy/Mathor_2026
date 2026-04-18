@@ -9,6 +9,39 @@
 \usepackage{float}
 \usepackage{graphicx}
 \usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{keywordcolor}{RGB}{0,112,192}
+\definecolor{commentcolor}{RGB}{106,153,85}
+\definecolor{stringcolor}{RGB}{163,21,21}
+
+\lstset{
+  language=Python,
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small\linespread{1.0}\selectfont,
+  keywordstyle=\color{keywordcolor}\bfseries,
+  commentstyle=\color{commentcolor}\itshape,
+  stringstyle=\color{stringcolor},
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  stepnumber=1,
+  numbersep=6pt,
+  frame=single,
+  framerule=0.5pt,
+  rulecolor=\color{gray!50},
+  breaklines=true,
+  breakatwhitespace=false,
+  showstringspaces=false,
+  tabsize=4,
+  captionpos=b,
+  xleftmargin=1.5em,
+  xrightmargin=0.5em,
+  aboveskip=8pt,
+  belowskip=6pt,
+  morekeywords={True, False, None, int, str, float, bool, return, def},
+}
 \usepackage{longtable}
 \usepackage{placeins}
 \usepackage{tabularx}
@@ -639,6 +672,177 @@ R_{\text{final}}(x) = \begin{cases}
   1\text{（低）}, & S_{\text{total}} \le 2.
 \end{cases}
 \]
+
+\subsubsection{融合多维度特征的风险预警模型定义}\label{sec:q2-math-function}
+ 
+基于上述双层体系，定义风险预警映射
+\[
+  \mathcal{F}: \mathcal{X} \longrightarrow \{1,2,3\},
+\]
+其中输入空间为
+\[
+  \mathcal{X} = \mathbb{R}_{>0}^{4} \times [0,100] \times \mathbb{R}_{>0}
+               \times [0,100] \times \{1,\dots,5\} \times \{0,1\}^{2},
+\]
+对应分量依次为 $(TC,\; TG,\; \text{LDL-C},\; \text{HDL-C},\;
+P_{\text{tan}},\; \text{BMI},\; \text{Act},\; G,\; \text{sex},\; \text{smk})$。
+ 
+\paragraph{第一步：血脂异常项数}
+ 
+定义四个指示函数：
+\begin{align}
+  \mathbb{1}_{\text{TC}}  &= \mathbf{1}[TC > 6.2], &
+  \mathbb{1}_{\text{TG}}  &= \mathbf{1}[TG > 1.7], \notag\\
+  \mathbb{1}_{\text{LDL}} &= \mathbf{1}[\text{LDL-C} > 3.1], &
+  \mathbb{1}_{\text{HDL}} &= \mathbf{1}[\text{HDL-C} < 1.04], \notag
+\end{align}
+血脂异常项数为
+\[
+  N_{\text{abn}} = \mathbb{1}_{\text{TC}} + \mathbb{1}_{\text{TG}}
+                 + \mathbb{1}_{\text{LDL}} + \mathbb{1}_{\text{HDL}}
+                 \;\in\; \{0,1,2,3,4\}.
+\]
+ 
+\paragraph{第二步：硬规则层}
+ 
+\[
+  \delta_{\text{R1}} = \mathbf{1}[N_{\text{abn}} \ge 2].
+\]
+若 $\delta_{\text{R1}} = 1$，则令 $\mathcal{F}(\mathbf{x}) = 3$ 并终止计算。
+ 
+\paragraph{第三步：临床严重度评分}
+ 
+对 $\delta_{\text{R1}} = 0$ 的样本，定义分段函数：
+\[
+  \phi(v;\, a,\, b) =
+  \begin{cases}
+    2, & v > b,\\
+    1, & a < v \le b,\\
+    0, & v \le a,
+  \end{cases}
+  \qquad
+  \psi(v;\, a) =
+  \begin{cases}
+    1, & v < a,\\
+    0, & v \ge a.
+  \end{cases}
+\]
+则
+\[
+  S_{\text{clin}} = \phi(TC;\; 6.2,\; 7.2)
+                  + \phi(TG;\; 1.7,\; 2.3)
+                  + \phi(\text{LDL-C};\; 3.1,\; 4.1)
+                  + \psi(\text{HDL-C};\; 1.04)
+                  \;\in\; [0,\, 7].
+\]
+ 
+\paragraph{第四步：进展风险评分}
+ 
+定义痰湿积分三档函数：
+\[
+  \Phi_{\text{tan}}(P) =
+  \begin{cases}
+    3, & P \ge 80,\\
+    2, & 60 \le P < 80,\\
+    1, & 40 \le P < 60,\\
+    0, & P < 40,
+  \end{cases}
+\]
+BMI 两档函数：
+\[
+  \Phi_{\text{BMI}}(b) =
+  \begin{cases}
+    2, & b \ge 28,\\
+    1, & 24 \le b < 28,\\
+    0, & b < 24,
+  \end{cases}
+\]
+活动量表三档函数（中重度受限权重更高）：
+\[
+  \Phi_{\text{act}}(A) =
+  \begin{cases}
+    2, & A < 40,\\
+    1, & 40 \le A \le 59,\\
+    0, & A \ge 60,
+  \end{cases}
+\]
+年龄组三档函数（以 60 岁为 ASCVD 风险加速拐点）：
+\[
+  \Phi_{\text{age}}(G) =
+  \begin{cases}
+    2, & G \ge 4,\\
+    1, & G = 3,\\
+    0, & G \le 2,
+  \end{cases}
+\]
+则进展风险评分为
+\[
+  S_{\text{prog}} =
+    \underbrace{\Phi_{\text{tan}}(P_{\text{tan}})}_{\le 3}
+  + \underbrace{\Phi_{\text{BMI}}(\text{BMI})}_{\le 2}
+  + \underbrace{\Phi_{\text{act}}(\text{Act})}_{\le 2}
+  + \underbrace{\Phi_{\text{age}}(G)}_{\le 2}
+  + \underbrace{\text{sex}}_{\le 1}
+  + \underbrace{\text{smk}}_{\le 1}
+  \;\in\; [0,\, 11].
+\]
+ 
+\paragraph{第五步：综合评分与三级分层}
+ 
+综合风险评分为
+\[
+  S_{\text{total}} = S_{\text{clin}} + S_{\text{prog}} \;\in\; [0,\, 18].
+\]
+最终风险预警函数定义为：
+\[
+  \boxed{
+  \mathcal{F}(\mathbf{x}) =
+  \begin{cases}
+    3\;(\text{高风险}), & \delta_{\text{R1}} = 1
+        \quad[\text{硬规则层：} N_{\text{abn}} \ge 2],\\[4pt]
+    3\;(\text{高风险}), & \delta_{\text{R1}} = 0
+        \;\text{ 且 }\; S_{\text{total}} \ge 6,\\[4pt]
+    2\;(\text{中风险}), & \delta_{\text{R1}} = 0
+        \;\text{ 且 }\; 3 \le S_{\text{total}} \le 5,\\[4pt]
+    1\;(\text{低风险}), & \delta_{\text{R1}} = 0
+        \;\text{ 且 }\; S_{\text{total}} \le 2.
+  \end{cases}
+  }
+\]
+ 
+三个分层区间在 $S_{\text{total}}$ 轴上不重叠且完全覆盖 $[0,18]$，
+故 $\mathcal{F}$ 是一个定义良好的全函数。
+各分项得分可同时输出，供临床逐项溯源（见\cref{tab:func-io}）。
+ 
+\begin{table}[H]
+\centering\small
+\caption{风险预警函数 $\mathcal{F}$ 的输入输出规范}\label{tab:func-io}
+\begin{tabular}{@{}l l l c@{}}
+\toprule
+类别 & 符号 & 含义 & 取值域 \\
+\midrule
+\multirow{10}{*}{输入 $\mathbf{x}$}
+  & $TC$              & 总胆固醇 (mmol/L)             & $\mathbb{R}_{>0}$ \\
+  & $TG$              & 甘油三酯 (mmol/L)             & $\mathbb{R}_{>0}$ \\
+  & $\text{LDL-C}$    & 低密度脂蛋白胆固醇 (mmol/L)   & $\mathbb{R}_{>0}$ \\
+  & $\text{HDL-C}$    & 高密度脂蛋白胆固醇 (mmol/L)   & $\mathbb{R}_{>0}$ \\
+  & $P_{\text{tan}}$  & 痰湿积分                      & $[0, 100]$ \\
+  & $\text{BMI}$      & 身体质量指数 (kg/m$^2$)       & $\mathbb{R}_{>0}$ \\
+  & $\text{Act}$      & 活动量表总分（ADL+IADL）      & $[0, 100]$ \\
+  & $G$               & 年龄组                        & $\{1,2,3,4,5\}$ \\
+  & $\text{sex}$      & 性别（0=女，1=男）            & $\{0,1\}$ \\
+  & $\text{smk}$      & 吸烟史（0=无，1=有）          & $\{0,1\}$ \\
+\midrule
+\multirow{5}{*}{输出}
+  & $\mathcal{F}(\mathbf{x})$ & 风险等级               & $\{1,2,3\}$ \\
+  & $\delta_{\text{R1}}$      & 硬规则触发标志         & $\{0,1\}$ \\
+  & $N_{\text{abn}}$          & 血脂异常项数           & $\{0,1,2,3,4\}$ \\
+  & $S_{\text{clin}}$         & 临床严重度得分         & $[0,7]$ \\
+  & $S_{\text{prog}}$         & 进展风险得分           & $[0,11]$ \\
+  & $S_{\text{total}}$        & 综合风险评分           & $[0,18]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{分层结果与三项验证}\label{sec:q2-validation}
 

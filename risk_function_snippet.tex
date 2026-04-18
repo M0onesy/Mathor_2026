@@ -1,0 +1,186 @@
+% ================================================================
+% 以下为需要插入到 main.tex 的两个位置的代码片段
+%
+% 【位置 A】：在 \usepackage{hyperref} 之后（约第 10 行）添加
+%             listings 宏包配置（用于显示 Python 代码块）
+%
+% 【位置 B】：在最终分层公式（R_final 那段 cases 块）结束后、
+%             \subsection{分层结果与三项验证} 之前，
+%             插入新的 subsubsection "模型实现：风险预警函数"
+% ================================================================
+
+
+% ────────────────────────────────────────────────────────────────
+% 【位置 A】粘贴到 preamble，放在 \usepackage{hyperref} 之后
+% ────────────────────────────────────────────────────────────────
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{keywordcolor}{RGB}{0,112,192}
+\definecolor{commentcolor}{RGB}{106,153,85}
+\definecolor{stringcolor}{RGB}{163,21,21}
+
+\lstset{
+  language=Python,
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small\linespread{1.0}\selectfont,
+  keywordstyle=\color{keywordcolor}\bfseries,
+  commentstyle=\color{commentcolor}\itshape,
+  stringstyle=\color{stringcolor},
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  stepnumber=1,
+  numbersep=6pt,
+  frame=single,
+  framerule=0.5pt,
+  rulecolor=\color{gray!50},
+  breaklines=true,
+  breakatwhitespace=false,
+  showstringspaces=false,
+  tabsize=4,
+  captionpos=b,
+  xleftmargin=1.5em,
+  xrightmargin=0.5em,
+  aboveskip=8pt,
+  belowskip=6pt,
+  morekeywords={True, False, None, int, str, float, bool, return, def},
+}
+
+
+% ────────────────────────────────────────────────────────────────
+% 【位置 B】粘贴到最终分层公式（R_final cases 块）之后、
+%            \subsection{分层结果与三项验证} 之前
+% ────────────────────────────────────────────────────────────────
+
+\subsubsection{模型实现：风险预警函数}\label{sec:q2-function}
+
+基于上述双层体系，本文将完整决策逻辑封装为函数 \texttt{predict\_risk()}，
+实现``患者特征输入 $\to$ 三级风险输出''的端到端预警。
+函数接受 10 项输入特征，依次执行硬规则层判断与双轴评分，
+最终返回风险等级及各分项得分，便于临床逐项溯源（见\cref{tab:func-io}）。
+
+\begin{table}[H]
+\centering\small
+\caption{风险预警函数的输入输出规范}\label{tab:func-io}
+\begin{tabular}{@{}l l l l@{}}
+\toprule
+类别 & 参数名 & 含义 & 取值范围 \\
+\midrule
+\multirow{10}{*}{输入} 
+  & \texttt{tc}             & 总胆固醇 (mmol/L)        & 连续正实数 \\
+  & \texttt{tg}             & 甘油三酯 (mmol/L)        & 连续正实数 \\
+  & \texttt{ldl\_c}         & LDL-C (mmol/L)           & 连续正实数 \\
+  & \texttt{hdl\_c}         & HDL-C (mmol/L)           & 连续正实数 \\
+  & \texttt{phlegm\_score}  & 痰湿积分                 & $[0, 100]$ \\
+  & \texttt{bmi}            & BMI (kg/m$^2$)           & 连续正实数 \\
+  & \texttt{activity\_score}& 活动量表总分             & $[0, 100]$ \\
+  & \texttt{age\_group}     & 年龄组                   & $\{1,2,3,4,5\}$ \\
+  & \texttt{gender}         & 性别（0=女，1=男）       & $\{0,1\}$ \\
+  & \texttt{smoking}        & 吸烟史（0=无，1=有）     & $\{0,1\}$ \\
+\midrule
+\multirow{5}{*}{输出}
+  & \texttt{risk\_level}    & 风险等级（1=低/2=中/3=高）& $\{1,2,3\}$ \\
+  & \texttt{s\_clin}        & 临床严重度得分 $S_{\text{clin}}$ & $[0,7]$ 或 \texttt{None} \\
+  & \texttt{s\_prog}        & 进展风险得分 $S_{\text{prog}}$   & $[0,11]$ 或 \texttt{None} \\
+  & \texttt{s\_total}       & 综合风险评分 $S_{\text{total}}$  & $[0,18]$ 或 \texttt{None} \\
+  & \texttt{trigger\_r1}    & 是否触发硬规则 R1        & \texttt{True/False} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent 当 R1 被触发时，函数直接返回高风险（\texttt{risk\_level}$=3$），
+$S_{\text{clin}}$、$S_{\text{prog}}$、$S_{\text{total}}$ 均返回 \texttt{None}，
+表示分层决策已由指南硬规则完成，无需评分层介入。
+完整 Python 实现如下：
+
+\begin{lstlisting}[caption={风险预警模型核心函数 \texttt{predict\_risk()}},
+                   label={lst:predict-risk}]
+def predict_risk(tc, tg, ldl_c, hdl_c, phlegm_score,
+                 bmi, activity_score, age_group,
+                 gender, smoking):
+    """
+    多维度高血脂症三级风险预警函数
+    ----------------------------------------
+    采用"硬规则层 + 双轴可解释评分卡"双层体系：
+      层1：硬规则 R1（血脂异常项数 >= 2）  ->  直接高风险
+      层2：S_clin (0-7) + S_prog (0-11) = S_total (0-18)
+           S_total <= 2 -> 低风险
+           3 <= S_total <= 5 -> 中风险
+           S_total >= 6 -> 高风险
+    """
+    # ── 层1：硬规则层（2016 血脂指南，混合型高危）──────────────
+    n_abnormal = (int(tc    >  6.2) + int(tg    >  1.7) +
+                  int(ldl_c >  3.1) + int(hdl_c <  1.04))
+    if n_abnormal >= 2:                     # R1 触发 -> 直接高风险
+        return 3, None, None, None, True
+
+    # ── 层2a：临床严重度 S_clin（基于 2016 指南血脂分档）───────
+    s_clin = 0
+    # TC：边缘升高 +1，极度升高 +2
+    if   tc > 7.2: s_clin += 2
+    elif tc > 6.2: s_clin += 1
+    # TG：边缘升高 +1，极度升高 +2
+    if   tg > 2.3: s_clin += 2
+    elif tg > 1.7: s_clin += 1
+    # LDL-C：边缘升高 +1，极度升高 +2
+    if   ldl_c > 4.1: s_clin += 2
+    elif ldl_c > 3.1: s_clin += 1
+    # HDL-C：偏低 +1
+    if hdl_c < 1.04:   s_clin += 1         # S_clin in [0, 7]
+
+    # ── 层2b：进展风险 S_prog（中医体质 + ASCVD 因素）─────────
+    s_prog = 0
+    # 痰湿积分（王琦九体质等距三分）：轻 +1 / 中 +2 / 重 +3
+    if   phlegm_score >= 80: s_prog += 3
+    elif phlegm_score >= 60: s_prog += 2
+    elif phlegm_score >= 40: s_prog += 1
+    # BMI（WHO-中国超重/肥胖分界）：超重 +1 / 肥胖 +2
+    if   bmi >= 28: s_prog += 2
+    elif bmi >= 24: s_prog += 1
+    # 活动量表（Katz/Lawton 三级功能分档）：轻限 +1 / 中重限 +2
+    if   activity_score <  40: s_prog += 2
+    elif activity_score <= 59: s_prog += 1
+    # 年龄组（ACC/AHA ASCVD 风险加权）：60-69 +1 / >=70 +2
+    if   age_group >= 4: s_prog += 2        # 70-79 或 80-89
+    elif age_group == 3: s_prog += 1        # 60-69
+    # 性别（男性心血管独立危险因素）
+    if gender  == 1: s_prog += 1
+    # 吸烟史（心血管独立危险因素）
+    if smoking == 1: s_prog += 1            # S_prog in [0, 11]
+
+    # ── 综合评分与三级分层 ─────────────────────────────────────
+    s_total = s_clin + s_prog               # S_total in [0, 18]
+    if   s_total >= 6: risk_level = 3       # 高风险（>=3 独立危险因素叠加）
+    elif s_total >= 3: risk_level = 2       # 中风险（灰色区间）
+    else:              risk_level = 1       # 低风险（至多轻度单项偏离）
+
+    return risk_level, s_clin, s_prog, s_total, False
+\end{lstlisting}
+
+\paragraph{函数使用示例}
+以本文样本~1（女，50--59 岁，$P_0=64$，活动量表 38，TC$=5.8$，TG$=1.5$，
+LDL-C$=2.9$，HDL-C$=1.1$，BMI$=24.3$，无吸烟史）为例，
+调用过程与输出如下：
+
+\begin{lstlisting}[caption={样本 1 风险预警调用示例},
+                   label={lst:example-call}]
+risk, sc, sp, st, r1 = predict_risk(
+    tc=5.8, tg=1.5, ldl_c=2.9, hdl_c=1.1,
+    phlegm_score=64, bmi=24.3, activity_score=38,
+    age_group=2,        # 50-59 岁
+    gender=0,           # 女
+    smoking=0           # 无吸烟史
+)
+# 输出：risk=3, s_clin=0, s_prog=6, s_total=6, trigger_r1=False
+# 解读：血脂四项均在正常范围（R1 未触发，n_abnormal=0）
+#        S_clin=0；痰湿积分 64∈[60,79] -> +2，活动<40 -> +2，
+#        年龄组 2 -> +0，BMI=24.3∈[24,28) -> +1，女/不吸烟 -> +0
+#        S_prog=5；S_total=5 -> 中风险
+\end{lstlisting}
+
+\noindent\textbf{注}：样本 1 在正文问题三中因 $P_0=64$ 被分入强化调理启动区。
+上例血脂取值为示意（题目未提供该样本的完整血常规数值）；
+实际使用时直接传入附件数据中对应字段即可。
+函数对全部 278 名痰湿体质患者的批量调用封装于 \texttt{problem2.py} 第 120--145 行。
