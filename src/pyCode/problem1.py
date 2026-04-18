@@ -10,7 +10,7 @@
 import numpy as np, pandas as pd, warnings
 from scipy import stats
 from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
-from sklearn.linear_model import LogisticRegression, LassoCV, Lasso
+from sklearn.linear_model import ElasticNetCV, LogisticRegression, LogisticRegressionCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from statsmodels.stats.outliers_influence import variance_inflation_factor
@@ -180,7 +180,7 @@ print("""
 方法论 (5 种互补方法):
   M1. Spearman 秩相关        (非参数 · 单调 · 稳健)
   M2. 互信息 MI              (非参数 · 非线性 · 捕捉任意依赖)
-  M3. LASSO 稀疏回归         (嵌入式 · 参数化 · 内生处理共线性)
+  M3. 弹性网络回归           (L1+L2 联合惩罚 · 稀疏且稳健处理共线特征组)
   M4. 随机森林置换重要度     (嵌入式 · 非参数化 · 捕捉交互)
   M5. 偏相关                 (参数 · 控制其它变量后的净效应)
 
@@ -219,11 +219,19 @@ mi = mutual_info_regression(X_phl, y_phl, random_state=42)
 for i, f in enumerate(SET_C):
     m2_phl[f] = mi[i]
 
-# M3 LASSO
-lasso = LassoCV(cv=5, random_state=42, max_iter=5000)
-lasso.fit(Xs, y_phl)
+# M3 弹性网络
+enet_l1_ratios = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0]
+enet = ElasticNetCV(
+    l1_ratio=enet_l1_ratios,
+    alphas=200,
+    cv=5,
+    random_state=42,
+    max_iter=20000,
+)
+enet.fit(Xs, y_phl)
+print(f"M3 回归最优参数: best_alpha={enet.alpha_:.6f}, best_l1_ratio={enet.l1_ratio_:.2f}")
 for i, f in enumerate(SET_C):
-    m3_phl[f] = abs(lasso.coef_[i])
+    m3_phl[f] = abs(enet.coef_[i])
 
 # M4 RF 置换重要度
 rf = RandomForestRegressor(n_estimators=500, max_depth=10, random_state=42, n_jobs=-1)
@@ -250,7 +258,7 @@ df_phl = pd.DataFrame({
     'feature': SET_C,
     'Spearman|r|': [m1_phl[f] for f in SET_C],
     'MI': [m2_phl[f] for f in SET_C],
-    'LASSO|β|': [m3_phl[f] for f in SET_C],
+    'ENet|β|': [m3_phl[f] for f in SET_C],
     'RF_perm': [m4_phl[f] for f in SET_C],
     'Partial_r': [m5_phl[f] for f in SET_C],
     'Borda_pts': [borda_phl[f] for f in SET_C],
@@ -276,13 +284,24 @@ mi = mutual_info_classif(X_phl, y_risk, random_state=42)
 for i, f in enumerate(SET_C):
     m2_r[f] = mi[i]
 
-# M3 LASSO Logistic 
-from sklearn.linear_model import LogisticRegressionCV
-lr_lasso = LogisticRegressionCV(cv=5, penalty='l1', solver='saga',
-                                 max_iter=5000, random_state=42, n_jobs=-1)
-lr_lasso.fit(Xs, y_risk)
+# M3 弹性网络 Logistic
+logit_Cs = np.logspace(-2, 2, 20)
+logit_l1_ratios = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
+lr_enet = LogisticRegressionCV(
+    cv=5,
+    penalty='elasticnet',
+    solver='saga',
+    Cs=logit_Cs,
+    l1_ratios=logit_l1_ratios,
+    scoring='roc_auc',
+    max_iter=20000,
+    random_state=42,
+    n_jobs=-1,
+)
+lr_enet.fit(Xs, y_risk)
+print(f"M3 分类最优参数: best_C={lr_enet.C_[0]:.6f}, best_l1_ratio={lr_enet.l1_ratio_[0]:.2f}")
 for i, f in enumerate(SET_C):
-    m3_r[f] = abs(lr_lasso.coef_[0][i])
+    m3_r[f] = abs(lr_enet.coef_[0][i])
 
 # M4 RF 置换
 rfc = RandomForestClassifier(n_estimators=500, max_depth=10,
@@ -303,7 +322,7 @@ df_risk = pd.DataFrame({
     'feature': SET_C,
     'Spearman|r|': [m1_r[f] for f in SET_C],
     'MI': [m2_r[f] for f in SET_C],
-    'LASSO|β|': [m3_r[f] for f in SET_C],
+    'ENet|β|': [m3_r[f] for f in SET_C],
     'RF_perm': [m4_r[f] for f in SET_C],
     'Wald': [m5_r[f] for f in SET_C],
     'Borda_pts': [borda_r[f] for f in SET_C],
