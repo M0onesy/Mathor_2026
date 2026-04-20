@@ -41,11 +41,13 @@ problem3.py — 2026 MathorCup C 题 · 问题三
 from __future__ import annotations
 import os, json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from common import FIGURE_DIR, TABLE_DIR, ensure_output_dirs, find_sample_data_path
 
 mpl.rcParams["font.sans-serif"] = ["Noto Sans CJK JP", "Noto Sans CJK SC",
                                     "WenQuanYi Zen Hei", "SimHei", "DejaVu Sans"]
@@ -140,8 +142,8 @@ def enumerate_pareto(S0: float, K_i: List[int],
                      budget: float = BUDGET_HARD,
                      **dyn_kw) -> List[Plan]:
     """
-    逐月 Pareto 前沿推进。只枚举 f ∈ F_EFFECTIVE_SET
-    （因 f∈{2,3,4} 被 f=1 严格支配，同 r=0 但成本递增）。
+    逐月 Pareto 前沿推进。只枚举 f ∈ F_EFFECTIVE_SET。
+    f<5 时运动项无效且仍产生活动费，属于劣策略，故不纳入决策域。
     """
     frontier: List[tuple] = [(
         S0, 0.0, (), (), (S0,), (), (), ()
@@ -308,9 +310,10 @@ FEATURE_RENAME = {
     "年龄组": "age", "年龄": "age",
     "性别": "gender",
     "体质标签": "type", "中医体质": "type",
-    "痰湿积分": "S0", "痰湿质积分": "S0",
+    "痰湿质": "S0", "痰湿积分": "S0", "痰湿质积分": "S0",
     "ADL总分": "adl", "ADL 总分": "adl",
     "IADL总分": "iadl", "IADL 总分": "iadl",
+    "活动量表总分（ADL总分+IADL总分）": "act_score",
     "活动量表总分": "act_score", "活动量表": "act_score",
 }
 
@@ -322,12 +325,25 @@ def load_patients(path: str) -> pd.DataFrame:
     df = df.rename(columns={c: FEATURE_RENAME.get(c.strip(), c) for c in df.columns})
     if "S0" not in df.columns:
         for c in df.columns:
-            if "痰湿" in str(c) and "积分" in str(c):
+            if str(c) == "痰湿质" or ("痰湿" in str(c) and "积分" in str(c)):
                 df = df.rename(columns={c: "S0"}); break
     if "act_score" not in df.columns:
         if "adl" in df.columns and "iadl" in df.columns:
             df["act_score"] = df["adl"] + df["iadl"]
     return df
+
+
+def resolve_output_dirs(out_root: Optional[str] = None) -> Tuple[Path, Path]:
+    """返回 (fig_dir, table_dir)。默认使用仓库标准 src/outputs/{figures,tables}。"""
+    if out_root:
+        root = Path(out_root)
+        fig_dir = root / "figures"
+        table_dir = root / "tables"
+        fig_dir.mkdir(parents=True, exist_ok=True)
+        table_dir.mkdir(parents=True, exist_ok=True)
+        return fig_dir, table_dir
+    ensure_output_dirs()
+    return FIGURE_DIR, TABLE_DIR
 
 def feasible_K(age_group: int, act_score: float) -> List[int]:
     K_age   = {1: [1,2,3], 2: [1,2,3], 3: [1,2], 4: [1,2], 5: [1]}
@@ -582,8 +598,7 @@ DEMO_SAMPLES = [
 ]
 
 
-def run_demo(out_dir: str = "outputs"):
-    os.makedirs(out_dir, exist_ok=True)
+def run_demo(fig_dir: Path, table_dir: Path):
     recs: List[Recommendation] = []
     for s in DEMO_SAMPLES:
         print(f"\n=== 样本 {s['pid']}  S0={s['S0']}, K_i={feasible_K(s['age'],s['act'])} ===")
@@ -598,20 +613,20 @@ def run_demo(out_dir: str = "outputs"):
         print(f"TOPSIS  → S6={r.rec_topsis.S6:.2f}, C={r.rec_topsis.C_total:.0f}")
         print(f"Kneedle → S6={r.rec_knee.S6:.2f}, C={r.rec_knee.C_total:.0f}")
         tab = tabulate_prescription(r, "nmb")
-        tab.to_csv(f"{out_dir}/sample{s['pid']}_prescription.csv",
+        tab.to_csv(table_dir / f"sample{s['pid']}_prescription.csv",
                    index=False, encoding="utf-8-sig")
         print("NMB 推荐处方:")
         print(tab.to_string(index=False))
         recs.append(r)
-    plot_pareto_three    (recs, f"{out_dir}/Q3_pareto.png")
-    plot_trajectory_three(recs, f"{out_dir}/Q3_trajectory.png")
-    plot_lambda_sweep    (recs, f"{out_dir}/Q3_lambda_sweep.png")
-    plot_icer_ladder     (recs, f"{out_dir}/Q3_icer_ladder.png")
+    plot_pareto_three    (recs, str(fig_dir / "Q3_pareto.png"))
+    plot_trajectory_three(recs, str(fig_dir / "Q3_trajectory.png"))
+    plot_lambda_sweep    (recs, str(fig_dir / "Q3_lambda_sweep.png"))
+    plot_icer_ladder     (recs, str(fig_dir / "Q3_icer_ladder.png"))
     df_lam = sensitivity_lambda(recs, np.arange(0, 305, 5))
-    df_lam.to_csv(f"{out_dir}/Q3_lambda_sweep.csv",
+    df_lam.to_csv(table_dir / "Q3_lambda_sweep.csv",
                   index=False, encoding="utf-8-sig")
     df_rule = sensitivity_rule_coefs(recs)
-    df_rule.to_csv(f"{out_dir}/Q3_rule_sens.csv",
+    df_rule.to_csv(table_dir / "Q3_rule_sens.csv",
                    index=False, encoding="utf-8-sig")
     return recs
 
@@ -642,18 +657,62 @@ def plot_batch_summary(df_batch: pd.DataFrame, out: str):
     ax5.boxplot(age_grps, tick_labels=["40-49","50-59","60-69","70-79","80-89"])
     ax5.set_ylabel("总成本 (元)"); ax5.set_title("(e) 按年龄组总成本")
     ax5.grid(alpha=0.3)
-    cnt = df_batch.groupby("S0_tier").size()
-    ax6.bar(["$\\le 58$","59-61","$\\ge 62$"],
-            [cnt.get(t, 0) for t in ["低","中","高"]],
+    cer_by_tier = df_batch.groupby("S0_tier")["CER"].mean()
+    ax6.bar(["<=58", "59-61", ">=62"],
+            [cer_by_tier.get(t, 0) for t in ["低","中","高"]],
             color=["#7fbf7b", "#ffcc66", "#d73027"])
-    ax6.set_ylabel("人数"); ax6.set_title("(f) 按 $S_0$ 档位分组人数")
+    ax6.set_ylabel("平均 CER (元/分)")
+    ax6.set_title("(f) 按 $S_0$ 档位的 CER")
     ax6.grid(alpha=0.3)
     plt.tight_layout()
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
 
 
-def run_batch(data_path: str, out_dir: str = "outputs"):
-    os.makedirs(out_dir, exist_ok=True)
+def _write_batch_group_tables(df_out: pd.DataFrame, table_dir: Path) -> None:
+    by_k = df_out.groupby("K_size").agg(
+        人数=("id", "size"),
+        平均S6=("S6_nmb", "mean"),
+        平均总成本=("C_nmb", "mean"),
+        平均降幅=("drop_pct", "mean"),
+    ).round(2).reset_index()
+    by_k.to_csv(table_dir / "Q3_batch_by_K.csv", index=False, encoding="utf-8-sig")
+
+    by_s0 = df_out.groupby("S0_tier").agg(
+        人数=("id", "size"),
+        平均S6=("S6_nmb", "mean"),
+        平均总成本=("C_nmb", "mean"),
+        平均降幅=("drop_pct", "mean"),
+        平均CER=("CER", "mean"),
+    ).reindex(["低", "中", "高"]).round(2).reset_index()
+    by_s0.to_csv(table_dir / "Q3_batch_by_S0_tier.csv", index=False, encoding="utf-8-sig")
+
+    by_age = df_out.groupby("age").agg(
+        人数=("id", "size"),
+        平均S6=("S6_nmb", "mean"),
+        平均总成本=("C_nmb", "mean"),
+        平均降幅=("drop_pct", "mean"),
+        平均CER=("CER", "mean"),
+    ).round(2).reset_index()
+    by_age.to_csv(table_dir / "Q3_batch_by_age.csv", index=False, encoding="utf-8-sig")
+
+    df_cost = df_out.copy()
+    df_cost["cost_bin"] = pd.cut(
+        df_cost["C_nmb"],
+        bins=[-np.inf, 500, 1000, np.inf],
+        labels=["低档", "中档", "高档"],
+    )
+    by_cost = df_cost.groupby("cost_bin", observed=True).agg(
+        人数=("id", "size"),
+        平均S0=("S0", "mean"),
+        平均S6=("S6_nmb", "mean"),
+        平均成本=("C_nmb", "mean"),
+        平均降幅=("drop_pct", "mean"),
+        平均CER=("CER", "mean"),
+    ).round(2).reset_index()
+    by_cost.to_csv(table_dir / "Q3_batch_by_cost.csv", index=False, encoding="utf-8-sig")
+
+
+def run_batch(data_path: str, fig_dir: Path, table_dir: Path):
     df = load_patients(data_path)
     if "type" in df.columns:
         df_p = df[df["type"] == 5].reset_index(drop=True).copy()
@@ -681,8 +740,9 @@ def run_batch(data_path: str, out_dir: str = "outputs"):
                                     and r.rec_nmb.f_seq == r.rec_knee.f_seq),
         })
     df_out = pd.DataFrame(rows)
-    df_out.to_csv(f"{out_dir}/Q3_batch_results.csv",
+    df_out.to_csv(table_dir / "Q3_batch_results.csv",
                   index=False, encoding="utf-8-sig")
+    _write_batch_group_tables(df_out, table_dir)
     print("\n按 |K_i| 分组：")
     print(df_out.groupby("K_size")[["S6_nmb", "C_nmb", "drop_pct"]].mean().round(2))
     print("\n按 S0 档位分组：")
@@ -691,7 +751,7 @@ def run_batch(data_path: str, out_dir: str = "outputs"):
     print(df_out.groupby("age")[["S6_nmb", "C_nmb", "drop_pct"]].mean().round(2))
     print(f"\nNMB vs TOPSIS 一致率: {df_out['agree_nmb_topsis'].mean()*100:.1f}%")
     print(f"NMB vs Kneedle 一致率: {df_out['agree_nmb_knee'].mean()*100:.1f}%")
-    plot_batch_summary(df_out, f"{out_dir}/Q3_summary.png")
+    plot_batch_summary(df_out, str(fig_dir / "Q3_summary.png"))
     return df_out
 
 
@@ -699,21 +759,27 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Problem 3 NMB solver (严格按题意修订)")
     parser.add_argument("--data", default=None,
-                        help="附件 1 路径（xlsx/csv），省略则运行 demo")
-    parser.add_argument("--out", default="outputs", help="输出目录")
+                        help="附件 1 路径（xlsx/csv），省略则自动使用 src/Data 中的附件 1")
+    parser.add_argument("--out", default=None,
+                        help="输出根目录；省略则写入 src/outputs/figures 与 src/outputs/tables")
     parser.add_argument("--mode", choices=["demo", "batch", "all"], default="all")
     args = parser.parse_args()
+
+    fig_dir, table_dir = resolve_output_dirs(args.out)
+    data_path = args.data
+    if data_path is None and args.mode in ("batch", "all"):
+        data_path = str(find_sample_data_path())
 
     if args.mode in ("demo", "all"):
         print("="*70)
         print("  Part A · 三位样本 demo  (严格按题意: f<5 无效 + 中医无降分)")
         print("="*70)
-        recs_demo = run_demo(args.out)
+        recs_demo = run_demo(fig_dir, table_dir)
 
-    if args.mode in ("batch", "all") and args.data:
+    if args.mode in ("batch", "all") and data_path:
         print("\n" + "="*70)
         print("  Part B · 附件 1 · 278 人批量")
         print("="*70)
-        df_batch = run_batch(args.data, args.out)
+        df_batch = run_batch(data_path, fig_dir, table_dir)
 
-    print(f"\n完成。结果写入 {args.out}/")
+    print(f"\n完成。图写入 {fig_dir}；表写入 {table_dir}")
