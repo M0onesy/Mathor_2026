@@ -1,0 +1,13 @@
+﻿metric,value
+n_total,1000
+positive_rate,0.793
+leakage_consistency,1.0
+GBDT_test_auc,0.8827
+scorecard_test_auc,0.8396
+Brier,0.1023
+HL_p,0.6123
+cL_score,37.3038
+cH_score,79.3038
+CA_Z,8.8788
+CA_p,0.0
+best_IV_feature,ua

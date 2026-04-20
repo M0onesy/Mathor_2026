@@ -1,0 +1,18 @@
+﻿source,criterion,threshold,note
+scorecard,Youden,79.3038,
+scorecard,J_max,0.5881,
+scorecard,Youden_CI_low,37.3038,bootstrap percentile interval
+scorecard,Youden_CI_high,83.3038,bootstrap percentile interval
+scorecard,Near01,42.3038,
+scorecard,EER,41.3038,
+scorecard,F1,11.3319,
+scorecard,Sp70,37.3038,sp_target=0.7
+probability,Youden,0.8556,
+probability,J_max,0.7577,
+probability,Youden_CI_low,0.8556,bootstrap percentile interval
+probability,Youden_CI_high,0.9433,bootstrap percentile interval
+probability,Near01,0.8556,
+probability,EER,0.5343,
+probability,F1,0.4011,
+probability,Sp70,0.4618,sp_target=0.7
+probability,cost_sensitive,0.2771,"C_FN=5, C_FP=1, min_cost=64"

@@ -126,6 +126,12 @@ SET_C = blood + adl_sub + iadl_sub              # 同 Set A
 print(f"\n选定 Set C = 血常规({len(blood)}) + ADL子项({len(adl_sub)}) + IADL子项({len(iadl_sub)}) = {len(SET_C)} 个")
 print("(不纳入总分以避免完全共线 ADL_sum = ΣADL_i)")
 
+# 风险预警候选集: 从题设血常规+活动量表中剔除 4 个直接诊断血脂指标，避免标签泄露
+risk_blood = ['空腹血糖', '血尿酸', 'BMI']
+RISK_SET = risk_blood + adl_sub + iadl_sub
+print(f"风险预警候选集 = 非直接诊断指标({len(risk_blood)}) + ADL子项({len(adl_sub)}) + IADL子项({len(iadl_sub)}) = {len(RISK_SET)} 个")
+print("(显式排除 TC/TG/LDL-C/HDL-C 4 项直接血脂诊断指标以避免标签泄露)")
+
 # VIF 再检查 Set C (同 Set A)
 vif_C = vif_A.copy()
 # 去除超高共线特征 (VIF > 10, 除血脂相关)
@@ -271,17 +277,20 @@ df_phl.to_csv(table_path('Q1_phlegm_ranking.csv'), encoding='utf-8-sig', index=F
 
 # ===== 4.2 预警高血脂发病风险 —— 以二分类标签为目标 =====
 print("\n--- 4.2 预警高血脂发病风险(二分类标签为目标) ---")
+print("说明: 风险预警筛选已排除 TC/TG/LDL-C/HDL-C 四项直接血脂诊断指标，以避免标签泄露。")
 y_risk = df['高血脂症二分类标签'].values
 m1_r, m2_r, m3_r, m4_r, m5_r = {}, {}, {}, {}, {}
+X_risk = df[RISK_SET].values
+Xs_risk = StandardScaler().fit_transform(X_risk)
 
 # M1 Spearman (二分类也可用)
-for f in SET_C:
+for f in RISK_SET:
     r, _ = stats.spearmanr(df[f].values, y_risk)
     m1_r[f] = abs(r)
 
 # M2 MI (classif)
-mi = mutual_info_classif(X_phl, y_risk, random_state=42)
-for i, f in enumerate(SET_C):
+mi = mutual_info_classif(X_risk, y_risk, random_state=42)
+for i, f in enumerate(RISK_SET):
     m2_r[f] = mi[i]
 
 # M3 弹性网络 Logistic
@@ -298,36 +307,37 @@ lr_enet = LogisticRegressionCV(
     random_state=42,
     n_jobs=-1,
 )
-lr_enet.fit(Xs, y_risk)
+lr_enet.fit(Xs_risk, y_risk)
 print(f"M3 分类最优参数: best_C={lr_enet.C_[0]:.6f}, best_l1_ratio={lr_enet.l1_ratio_[0]:.2f}")
-for i, f in enumerate(SET_C):
+for i, f in enumerate(RISK_SET):
     m3_r[f] = abs(lr_enet.coef_[0][i])
 
 # M4 RF 置换
 rfc = RandomForestClassifier(n_estimators=500, max_depth=10,
                               random_state=42, class_weight='balanced', n_jobs=-1)
-rfc.fit(X_phl, y_risk)
-perm_r = permutation_importance(rfc, X_phl, y_risk, n_repeats=10, random_state=42, n_jobs=-1)
-for i, f in enumerate(SET_C):
+rfc.fit(X_risk, y_risk)
+perm_r = permutation_importance(rfc, X_risk, y_risk, n_repeats=10, random_state=42, n_jobs=-1)
+for i, f in enumerate(RISK_SET):
     m4_r[f] = perm_r.importances_mean[i]
 
 # M5 偏相关 (Logistic 回归 Wald 检验)
-lr_full = sm.Logit(y_risk, X_const).fit(disp=0, maxiter=2000)
+X_const_risk = sm.add_constant(Xs_risk)
+lr_full = sm.Logit(y_risk, X_const_risk).fit(disp=0, maxiter=2000)
 zvals = lr_full.tvalues[1:]
-for i, f in enumerate(SET_C):
+for i, f in enumerate(RISK_SET):
     m5_r[f] = abs(zvals[i]) / (abs(zvals[i]) + 1)  # 标准化到 (0,1)
 
-borda_r = borda_rank([m1_r, m2_r, m3_r, m4_r, m5_r], SET_C, higher_better=True)
+borda_r = borda_rank([m1_r, m2_r, m3_r, m4_r, m5_r], RISK_SET, higher_better=True)
 df_risk = pd.DataFrame({
-    'feature': SET_C,
-    'Spearman|r|': [m1_r[f] for f in SET_C],
-    'MI': [m2_r[f] for f in SET_C],
-    'ENet|β|': [m3_r[f] for f in SET_C],
-    'RF_perm': [m4_r[f] for f in SET_C],
-    'Wald': [m5_r[f] for f in SET_C],
-    'Borda_pts': [borda_r[f] for f in SET_C],
+    'feature': RISK_SET,
+    'Spearman|r|': [m1_r[f] for f in RISK_SET],
+    'MI': [m2_r[f] for f in RISK_SET],
+    'ENet|β|': [m3_r[f] for f in RISK_SET],
+    'RF_perm': [m4_r[f] for f in RISK_SET],
+    'Wald': [m5_r[f] for f in RISK_SET],
+    'Borda_pts': [borda_r[f] for f in RISK_SET],
 }).sort_values('Borda_pts', ascending=False)
-df_risk['Borda_排名'] = range(1, len(SET_C)+1)
+df_risk['Borda_排名'] = range(1, len(RISK_SET)+1)
 
 print("预警高血脂发病风险的特征排序 (Borda 聚合):")
 print(df_risk.round(4).to_string(index=False))

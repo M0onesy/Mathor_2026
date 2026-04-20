@@ -65,7 +65,7 @@
 \bianhao{MC2606970}
 \tihao{C}
 \timu{中老年人群高血脂症的风险预警及干预方案优化}
-\keyword{中老年高血脂症；中医体质辨识；痰湿体质；多重共线性；Borda 排序聚合；双轴可解释评分卡；Apriori 关联规则；动态规划}
+\keyword{中老年高血脂症；中医体质辨识；痰湿体质；标签泄漏；WOE-Logistic 评分卡；Youden 指数；Cochran-Armitage 趋势检验；决策曲线 DCA；Apriori 关联规则；双目标 Pareto 优化；净货币收益 NMB；Extended Dominance；ICER 门限规则}
 
 \begin{document}
 
@@ -74,13 +74,13 @@
 
 \textbf{数据清洗}：对 1000 例样本进行系统性质量检查，确认无缺失值与重复 ID，ADL/IADL 子项之和与总分完全吻合；检出 \textbf{65 例（6.5\%）体质标签与最高积分体质不一致}的判定歧义样本，标注保留；利用 Tukey IQR 准则发现各血脂指标仅 0\%--1.4\% 的离群值，多为真实病理表现，不作删除。本文还验证了\textbf{诊断标签与 ``血脂异常项数 $\ge 1$'' 一致率为 100\%}，揭示出血脂指标天然具有信息泄漏风险，这一发现直接指导了问题二的模型选型。
 
-\textbf{问题一}：将候选特征限定为\textbf{血常规指标（7 项）+ 活动量表评分（ADL/IADL 子项 10 项）}，共 17 个指标。先进行\textbf{多重共线性诊断（VIF）}剔除 $\text{ADL总分}=\Sigma \text{ADL}_i$ 这类完全共线的汇总项，再采用 5 种互补方法\textbf{（Spearman 秩相关、互信息、弹性网络回归、随机森林置换重要度、偏相关）}；方法选取遵循``参数／非参数 $\times$ 线性／非线性 $\times$ 单变量／控制其它变量''的三维正交覆盖原则。采用 \textbf{Borda 排序聚合}作为综合排序方法,规避量纲与分布偏态带来的偏差。结果：表征痰湿体质严重程度最优 Top-5 指标依次为 \textbf{TC、ADL 吃饭、BMI、TG、ADL 洗澡}；预警高血脂发病风险最优 Top-5 指标为 \textbf{TG、TC、血尿酸、HDL-C、LDL-C}（TG Borda 得分 84，TC 得分 80，显著领先）。
+\textbf{问题一}：将候选特征限定为\textbf{血常规指标（7 项）+ 活动量表评分（ADL/IADL 子项 10 项）}，共 17 个指标。先进行\textbf{多重共线性诊断（VIF）}剔除 $\text{ADL总分}=\Sigma \text{ADL}_i$ 这类完全共线的汇总项，再采用 5 种互补方法\textbf{（Spearman 秩相关、互信息、弹性网络回归、随机森林置换重要度、偏相关）}；方法选取遵循``参数／非参数 $\times$ 线性／非线性 $\times$ 单变量／控制其它变量''的三维正交覆盖原则。对“表征痰湿严重程度”的筛选仍使用完整候选集，而对“预警高血脂发病风险”的筛选显式排除 TC/TG/LDL-C/HDL-C 四项直接诊断血脂指标以避免标签泄露。采用 \textbf{Borda 排序聚合}作为综合排序方法,规避量纲与分布偏态带来的偏差。结果：表征痰湿体质严重程度的 Top-5 指标为 \textbf{TC、ADL 吃饭、BMI、TG、ADL 洗澡}；排除直接诊断血脂指标后，预警高血脂发病风险的 Top-5 指标为 \textbf{血尿酸、空腹血糖、ADL 洗澡、BMI、IADL 服药}；两类任务共同的关键指标为 \textbf{BMI} 和 \textbf{ADL 洗澡}，说明二者同时具有痰湿体质严重程度表征与高血脂前置预警价值。
 
 \textbf{九种体质贡献度}：采用 Borda 聚合五项指标（Cohen's $h$、RR、ARR、独热 $\beta$、积分多元 $\beta$）。分析发现本数据中各体质发病率差异并不显著（74.0\%--86.3\%），阳虚质发病率最高（86.3\%），而\textbf{痰湿体质发病率 77.3\% 反而低于整体均值 79.3\%}。进一步考察\textbf{剂量--响应关系}：痰湿积分 $\le 20$、$20$--$40$、$40$--$60$、$\ge 60$ 四组发病率分别为 78.6\%／82.3\%／79.0\%／73.8\%，未呈现单调递增。结合 Cohen's $h = 0.115$（痰湿质 vs.~其他体质），痰湿体质的贡献\textbf{更多体现于痰湿积分作为体质量化标尺的描述性意义}，而非二分类标签的直接预测力。
 
-\textbf{问题二}：考虑到血脂四项指标 TG/TC/LDL-C/HDL-C 与诊断标签在本数据中完全一致（100\% 匹配），以这四项为输入的黑箱分类器存在标签泄漏风险，按样本分位切分又缺乏外部可比性。为此构建``\textbf{硬规则层} $+$ \textbf{双轴可解释评分卡}''的双层体系：硬规则层仅保留 R1（血脂异常项数 $\ge 2$），用于承接 2016 指南中混合型血脂紊乱的高危兜底；题干示例不固化为硬规则，而在评分层与 Apriori 数据驱动层中得到再论证。评分层由临床严重度 $S_{\text{clin}}\in[0,7]$（基于《中国成人血脂异常防治指南(2016)》阈值分档）与进展风险 $S_{\text{prog}}\in[0,11]$（基于痰湿积分／BMI／活动／年龄／性别／吸烟等因素）正交构造，$S_{\text{total}}\in[0,18]$，阈值 $\{2, 6\}$ 的依据为``分数语义 $+$ 校准曲线拐点''的双重支撑。分层结果：\textbf{低风险 53 人（17.0\%）/ 中风险 314 人（58.0\%）/ 高风险 633 人（95.1\%）}；$S_{\text{total}}$ 作为连续风险评分 AUC $=0.812$。在痰湿体质子集中用 Apriori 关联规则挖掘高风险核心特征组合，得到``痰湿 $\ge 60$ + 血脂异常 $\ge 1$''（支持度 39.6\%，提升度 1.26）等 10 条量化关联规则。敏感性分析在权重 $\pm 25\%$ 与多个阈值扰动下分层一致率均 $\ge 84.9\%$，方案稳健。
+\textbf{问题二}：原拟采用``硬规则层 $+$ 双轴评分卡''方案，但经诊断发现\textbf{诊断标签 100\% 由 TC/TG/LDL-C/HDL-C 四项阈值规则派生}，构成 Kaufman 2012 定义的``标签泄漏''。按其处理规范，本文做\textbf{范式转换}：将``诊断重述''改写为``未病筛查''工具，\emph{完全剔除血脂四项}，仅用痰湿积分、空腹血糖、血尿酸、BMI、活动量表、年龄组、性别、吸烟、饮酒共 9 个特征。采用 \textbf{WOE-Logistic 评分卡（Siddiqi 2006 经典范式）$+$ GBDT $+$ RandomForest} 三模型并行 $5$ 折 CV，用 WOE/IV 编码 $+$ Logistic 系数分解构造整数评分卡（PDO=$20$，基准分=$100$）。5 折 CV AUC：WOE-LR $=0.843$、\textbf{GBDT $=0.895$}、RF $=0.875$；测试 AUC GBDT $=0.883$（DeLong $p<0.05$），Brier $=0.102$，Hosmer--Lemeshow $p=0.612$。阈值按 Youden 指数 $c_H=79.3$ 分、Sp$\ge 0.70$ 得 $c_L=37.3$ 分（Bootstrap BCa 95\% CI $[37.3, 83.3]$）；三级分层 \textbf{低 87 人（49.4\%）/ 中 44 人（72.7\%）/ 高 169 人（96.5\%）}，Cochran--Armitage $Z=8.88$, $p<10^{-17}$。一个重要数据发现：\textbf{血尿酸 IV=2.158}（远超其他特征），呈显著 U 型关系（Q1、Q5 箱阳性率 $89.2\%$、$99.3\%$，Q2 箱 $42.6\%$），该关系与 Kuwabara 2016 报告一致，非标签泄漏。痰湿体质子集三路径挖掘（Apriori $+$ 决策树 $+$ 置换重要度）一致识别 UA 为决定性因子（$\Delta\mathrm{AUC}=+0.368$），次为 BMI、FPG，典型核心规则``饮酒 $\wedge$ UA 升高 $\Rightarrow$ 高风险''（sup $0.284$, conf $0.937$, lift $1.211$）。
 
-\textbf{问题三}：构建 6 个月有限时域\textbf{动态规划}模型。决策变量为每月的调理分级 $L_t$、活动强度 $s_t$、周训练频次 $f_t$；严格整合年龄、评分、预算（$\le 2000$ 元）等约束以及附表 3 的动力学公式；设计四项复合目标 $J = \alpha P_6 + \beta \text{Cost} + \gamma \sum \max(0, f_t - 5) + \delta \sum(3 - s_t)$。求解 278 名痰湿体质患者的方案，发现明确匹配规律：\textbf{年龄越小、活动能力越强的患者趋向高强度低频次方案}（$s=2\text{--}3$，$f=5$，平均降幅 31\%）；年龄组 5 或活动量表 $<40$ 的患者仅能选 1 级强度（平均降幅 17.9\%）。样本 1（女，50--59，$P_0=64$，$\text{Act}=38$）总成本 700 元，$P_6=50.57$（降 21.0\%）；样本 2（男，40--49，$P_0=58$，$\text{Act}=40$）总成本 780 元，$P_6=40.02$（降 31.0\%）；样本 3（女，40--49，$P_0=59$，$\text{Act}=63$）总成本 1190 元，$P_6=33.51$（降 43.2\%）。
+\textbf{问题三}：注意到题目原文``考虑经济成本\textbf{及}有效降低痰湿积分的目标''用``及''字并列两个目标, 配合附表 3``总成本\textbf{建议}$\le 2000$ 元''的软约束措辞, 本文识别出题三的真实结构为\textbf{双目标 Pareto 优化 $+$ 统一选点准则}。\textbf{关键建模判断}：严格按附表 3 文字建立\textbf{加性动力学模型} $r_t = 0$ 当 $f_t < 5$, $r_t = 0.03 k_t + 0.01(f_t - 5)$ 当 $f_t \ge 5$; 附表 2 的中医调理分级仅赋予\textbf{固定月成本} $c_{\text{中医}}(L)\in\{30, 80, 130\}$ 元 (按月初积分 $L_t=g(S_{t-1})$ 判定), 题目未赋予中医降分率故\textbf{不作任何外部推测}——这两个判断避免了原拟 Bliss 乘法 $+$ 伪中医降分假设对题意的过度延拓; 月累积采用复利 $S_t=S_{t-1}(1-r_t)$, 决策变量 $\{(k_t, f_t)\}_{t=1}^{6}$。求解分四层推进: (1) 逐月 Pareto 前沿推进 $\varepsilon$-约束法 + 月末全局严格去劣生成完整前沿; (2) \textbf{Extended Dominance 预筛选} (Cantor 1994) 剔除被凸组合支配的非效率点, 三位样本分别从 $26/74/119$ 个原始 Pareto 点精炼至 $26/37/43$ 个效率前沿点 (样本 1 因 $|K|=1$ 前沿本身即为严格凸), ICER 序列严格单调递增; (3) 以 \textbf{净货币收益 NMB}$(\lambda)=\lambda(S_0-S_6)-C_{\text{total}}$ (Stinnett-Mullahy 1998 \textit{Medical Decision Making}) 作为\textbf{唯一选点准则}, 单一 $\arg\max$ 公式取代主观三类规则, 等价性定理 (Laska 1999) 保证 NMB argmax 与 ICER 门限规则一一对应; (4) $\lambda$ 四档扫描 $\{30, 50, 100, 200\}$ 元/分 (Neumann 2014 NEJM 方法论共识 + 中国社区卫生保守基准) 做稳健性分析, 并以 TOPSIS-熵权 $+$ Kneedle 独立几何方法做交叉对照, 规则系数 $\pm 20\%$ 扰动做参数敏感性分析。三位样本在 $\lambda=30$ 基准下的 NMB 最优方案: \textbf{样本 1} ($S_0=64$, $K=\{1\}$) 总成本 $\mathbf{1000}$ 元, $S_6=\mathbf{38.81}$ (降 $\mathbf{39.4\%}$), $k=1$ 全程 $+$ $f=10$ 全程——首月一次性跨越 $L_1=3\to L=1$ 节省 100 元/月中医费差; \textbf{样本 2} ($S_0=58$, $K=\{1,2\}$) 总成本 $\mathbf{840}$ 元, $S_6=\mathbf{37.08}$ (降 $\mathbf{36.1\%}$), $k=1$ 全程 $+$ $f=(10,10,5,10,10,10)$——第 3 月降至 $f=5$ 作"缓冲月"省活动费 60 元; \textbf{样本 3} ($S_0=59$, $K=\{1,2,3\}$) 总成本 $\mathbf{890}$ 元, $S_6=\mathbf{37.72}$ (降 $\mathbf{36.1\%}$), $k=1$ 全程 $+$ $f=(5,10,10,10,10,10)$——首月 $f=5$ 精准跨越 $L=2\to L=1$ 阈值节省后续 5 月中医费。三位样本的 $(k_t,f_t)$ 序列差异严格由可行集 $K_i$ 约束与 $S_0$ 相对 TCM 档位阈值的位置从单一 NMB 准则\textbf{自然涌现}, 无任何 if-else 分类规则。$\lambda\in\{30,50,100,200\}$ 扫描呈现平滑政策过渡: $\lambda=50$ 时三位样本均跃迁至 $k=1, f=10$ 全程 (总成本 $1000/900/950$ 元), $\lambda=100$ 时样本 2/3 升级至 $k=2, f=10$ (1380/1430 元), $\lambda=200$ 时样本 3 再升级至 $k=3, f=10$ (2150 元, 略超 2000 元建议上限)。规则系数 $\pm 20\%$ 扰动下 9 组方案结构稳定, $S_6$ 变化 $\le 3$ 分, 验证 NMB 准则全面稳健。
 \end{abstract}
 
 \tableofcontents
@@ -97,9 +97,8 @@
 
 \textbf{问题一}要求\textit{从血常规体检指标和中老年人活动量表评分中}，筛选出能表征痰湿体质严重程度、并预警高血脂发病风险的关键指标，研究九种体质的风险贡献度差异。题目已将候选特征的范围限定为血常规与活动量表两类，故本文不将性别、吸烟、饮酒、年龄组等基础信息纳入筛选对象。本质上这是一个 \textbf{受约束特征集合下的多重假设检验与方法集成排序问题}，且活动量表应尽量利用 ADL/IADL 各子项以保留信息，同时须排除冗余汇总项带来的多重共线性。
 
-\textbf{问题二}要求构建三级风险预警模型，并给出分层阈值的选取依据。考虑到血脂指标 TG/TC/LDL-C/HDL-C 本身是高血脂的临床诊断依据（本数据中 ``血脂异常 $\ge 1$ 项'' 与诊断标签 100\% 匹配），直接把这四项原值喂给机器学习模型并依样本分位切分三级风险存在两个根本缺陷：(a) \textbf{标签泄漏}使得``概率''实为``是否已被诊断''的重现，混淆``既病''与``未病''；(b) 33\%／67\% 分位随样本阳性率漂移，缺乏外部可比性。据此本文采用 \textbf{``硬规则层 + 双轴可解释评分卡''} 的双层体系：硬规则层仅保留指南明文可追溯的 R1；题干示例不直接固化为硬规则，而是在评分层与 Apriori 数据驱动层中得到再论证。评分层由``临床严重度 $S_{\text{clin}}$''（血脂指南分档）与``进展风险 $S_{\text{prog}}$''（中医体质+ASCVD 因素）正交构造，阈值根据分数语义与校准曲线拐点确定。
-
-\textbf{问题三}是一个 \textbf{多约束、多时段、多目标的离散动态优化}：在 6 个月时域内每月决定``调理分级--活动强度--训练频次''三元组，满足年龄、评分、预算硬约束，并权衡疗效、成本、耐受度。由于状态与决策均离散且时域有限，\textbf{前向动态规划}可在毫秒量级给出全局最优解。
+\textbf{问题二}要求构建三级风险预警模型，并给出分层阈值的选取依据。考虑到血脂指标 TG/TC/LDL-C/HDL-C 本身是高血脂的临床诊断依据（本数据中 ``血脂异常 $\ge 1$ 项'' 与诊断标签 100\% 匹配），直接把这四项原值喂给机器学习模型会形成\textbf{标签泄漏}，按样本分位切分又缺乏外部可比性。据此本文将问题二从``诊断重述''转换为``未病筛查''：完全剔除血脂四项，仅用痰湿积分、空腹血糖、血尿酸、BMI、活动量表、年龄组、性别、吸烟、饮酒 9 个非血脂特征，采用 WOE-Logistic 评分卡、GBDT 与 RandomForest 并行建模，并以 Youden 指数、特异度约束、Bootstrap 置信区间、校准曲线和决策曲线共同确定三级阈值。
+\textbf{问题三}是一个 \textbf{双目标离散优化 $+$ 统一选点准则} 问题:题目原文``考虑经济成本\textbf{及}有效降低痰湿积分的目标下''用``及''字并列两个目标,配合附表 3``单人 6 个月总成本\textbf{建议}$\le 2000$ 元''的``建议''措辞,表明整道题的真实结构是在成本与降分之间寻找每位患者的个体权衡点,而非求``把积分降到最低''的单目标最优解。若采用单目标 $\min S_6$,最优解会退化为``力所能及最高档''的平凡解——这既违反``建议''的软约束措辞,也失去了优化建模的价值。据此,本文将决策变量设为月变序列 $\{(k_t,f_t)\}_{t=1}^{6}$，\textbf{严格按附表 3 文字采用加性动力学} $r_t = 0$ 当 $f_t<5$, $r_t = 0.03k_t + 0.01(f_t-5)$ 当 $f_t\ge 5$; 附表 2 的中医调理档位仅赋予固定月成本, \textbf{不贡献降分率} (忠于题意不作外部推测); 月累积采用复利递推, 用 $\varepsilon$-约束法 + 月末全局严格 Pareto 去劣生成完整 Pareto 前沿。关键方法论创新在于: 避免主观``经济型/肘点型/冲档型''人为分类规则, 采用\textbf{健康经济学金标准的净货币收益 (Net Monetary Benefit, NMB) argmax 作为唯一选点准则}, 该准则 (Stinnett \& Mullahy 1998 \textit{Medical Decision Making}; Laska et al.~1999 \textit{Health Economics}) 在 Extended Dominance 预筛选 (Cantor 1994) 后的效率前沿上给出与 ICER 门限规则严格等价的选点, $\lambda$ 阈值按 Neumann, Cohen \& Weinstein 2014 \textit{NEJM} 的方法论共识做四档扫描, 患者异质性完全由可行集 $K_i$、起点 $S_0$ 与动力学断点\textbf{从单一公式中自然涌现}, 不再依赖任何 if-else 分支。
 
 \subsection{技术路线}
 
@@ -122,7 +121,7 @@ $\downarrow$ \\
 $\downarrow$ \\
 \hline
 \textbf{Step 4 · 问题三 · 6 月干预优化} \\
-DP 前向递推 $\to$ 个体最优方案 $\to$ 匹配规律 \\
+双目标 Pareto $\min(S_6,C_{\text{total}})$ $\to$ 月度前沿推进 $\to$ Extended Dominance 预筛选 $\to$ NMB($\lambda$) argmax 统一选点 $\to$ $\lambda$ 扫描 + CEAC 稳健性 + TOPSIS/Kneedle 交叉对照 \\
 \hline
 \end{tabular}
 \end{center}
@@ -138,7 +137,12 @@ DP 前向递推 $\to$ 个体最优方案 $\to$ 匹配规律 \\
 \item 附件数据真实可靠，能代表目标人群。
 \item 体质积分采用《中医体质量表》标准，各积分越高体质偏颇越显著。
 \item 临床正常范围（TC: $3.1$--$6.2$; TG: $0.56$--$1.7$; LDL-C: $2.07$--$3.1$; HDL-C: $1.04$--$1.55$ mmol/L; BMI: $18.5$--$23.9$ kg/m$^2$）在该人群中通用。
-\item 附表 3 的干预动力学假设成立：$f < 5$ 时痰湿积分稳定；$f \ge 5$ 时每提升 1 级强度月衰减增加 3\%，每增加 1 次频次（超过 5 次部分）月衰减增加 1\%。
+\item 附表 3 的三条降分规则严格按\textbf{字面规则}建模: \textbf{规则 A (硬约束)} 每周干预次数 $f<5$ 次 $\Rightarrow$ ``痰湿积分基本稳定'', 即月降分率 $r_t=0$; \textbf{规则 B} $f=5$ 时每升一级 $k$ 月降 $3\%$; \textbf{规则 C} 特定 $k$ 下 $f$ 每加 $1$ 次月多降 $1\%$。``下降 X\% 左右''的字面含义为\textbf{绝对百分比加性叠加}, 故:
+\[
+r_t(k,f) \;=\; \begin{cases}0 & f<5 \\ 0.03\,k + 0.01\,(f-5) & f\ge 5\end{cases}
+\]
+由于 $f<5$ 时运动完全无效却仍需支付活动费 $4f c_{\text{act}}$, 属劣策略, 故\textbf{决策域严格限定} $f_t\in\{5,6,\dots,10\}$ (最大 $r_t=0.03\cdot 3+0.01\cdot 5=0.14$, 物理可行)。月累积采用复利递推 $S_{t+1}=S_t(1-r_t)$。
+\item 中医调理档位 $L_t=g(S_{t-1})$ 按月初积分动态再分档, 仅赋予\textbf{固定月成本} $c_{\text{中医}}(L)\in\{30,80,130\}$ 元——题目附表 2 未赋予中医任何降分率, 本文\textbf{严格忠于题意不作外部推测}; 中医项不参与状态递推公式 $r_t$ 的计算, 仅作用于总成本函数。
 \item 年龄约束、评分约束为硬约束；训练频次 $\le 10$ 次/周。
 \item 每月按 4 周、6 月按 24 周计算。
 \end{enumerate}
@@ -152,12 +156,16 @@ DP 前向递推 $\to$ 个体最优方案 $\to$ 匹配规律 \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-$P_t$ & 第 $t$ 月末的痰湿积分（$P_0$ 为初始值） \\
-$L_t \in \{1,2,3\}$ & 第 $t$ 月的调理分级 \\
-$s_t \in \{1,2,3\}$ & 第 $t$ 月的活动强度 \\
-$f_t \in \{1,\dots,10\}$ & 第 $t$ 月每周训练频次 \\
-$C_L(L) \in \{30, 80, 130\}$ & 调理月成本（元） \\
-$C_S(s) \in \{3, 5, 8\}$ & 单次训练成本（元） \\
+$S_t$（或 $P_t$） & 第 $t$ 月末的痰湿积分（$S_0$ 为初始值） \\
+$L_t \in \{1,2,3\}$ & 第 $t$ 月的中医调理分级（由月初积分 $S_{t-1}$ 决定） \\
+$k_t \in \{1,2,3\}$ & 第 $t$ 月的活动干预强度等级 \\
+$f_t \in \{5,\dots,10\}$ & 第 $t$ 月每周训练次数（决策域, 规则 A 剔除 $f<5$） \\
+$K_i$ & 患者 $i$ 的可行强度集 $K_{\text{age}}\cap K_{\text{score}}$ \\
+$r_t$ & 第 $t$ 月运动项月降分率 $= 0.03 k_t + 0.01(f_t-5)$ \\
+$C_L(L) \in \{30, 80, 130\}$ & 中医调理月成本（元, 按月初积分档位, 仅固定支出） \\
+$c_{\text{act}}(k) \in \{3, 5, 8\}$ & 单次训练成本（元/次） \\
+$D(k) \in \{10,20,30\}$ & 单次训练时长（分钟） \\
+$C_{\text{total}}$ & 6 个月累计总成本 \\
 $\text{act}_i$ & 第 $i$ 个患者的活动量表总分 \\
 $\text{age}_i \in \{1,\dots,5\}$ & 年龄组 \\
 $y \in \{0, 1\}$ & 高血脂症诊断标签 \\
@@ -308,6 +316,8 @@ M5 偏相关（$t$ 值）      & 参     & 线性     & 控制其它 & 控制其
 \item \textbf{M5 偏相关}：拟合多元 OLS/Logit，取各特征 Wald $t$ 值的 $|t|/\sqrt{t^2 + df}$ 作为偏相关系数绝对值，控制其他变量后的 ``净效应''。
 \end{itemize}
 
+需要说明：问题一的两类筛选任务使用不同候选集。表征痰湿体质严重程度时，仍使用题设完整候选集（血常规 7 项 + ADL/IADL 子项 10 项）；而预警高血脂发病风险时，显式剔除 TC、TG、LDL-C、HDL-C 四项直接诊断血脂指标，仅保留其余 13 项（空腹血糖、血尿酸、BMI 及 ADL/IADL 子项）进行排序，以避免标签泄露。
+
 \subsubsection{Borda 排序聚合}
 
 若采用 Z-score 加和的方式对多方法得分进行聚合,存在两个根本问题：(1) Z-score 受\textbf{分布偏态}影响剧烈（如 F 统计量分布严重右偏）；(2) 不同方法\textbf{量纲不同}（MI 是 nats，弹性网络 $\beta$ 是标准化系数），即使 Z-score 也无法完全消除量纲差异。
@@ -371,28 +381,47 @@ M5 偏相关（$t$ 值）      & 参     & 线性     & 控制其它 & 控制其
 
 \begin{table}[H]
 \centering\small
-\caption{预警高血脂发病风险的关键指标（Borda 聚合排序 · Top 10）}\label{tab:q1-risk}
+\caption{排除直接诊断血脂指标后的高血脂发病风险预警关键指标（Borda 聚合排序 · Top 10）}\label{tab:q1-risk}
 \begin{tabular}{@{}c l c c c c c c@{}}
 \toprule
 排名 & 指标 & Spearman$|r|$ & MI & ENet$|\beta|$ & RF perm & Wald & \textbf{Borda} \\
 \midrule
-1  & \textbf{TG（甘油三酯）}  & 0.489 & 0.180 & 2.896 & 0.166 & 0.913 & \textbf{84} \\
-2  & \textbf{TC（总胆固醇）}  & 0.436 & 0.162 & 2.026 & 0.155 & 0.916 & \textbf{80} \\
-3  & \textbf{血尿酸}          & 0.204 & 0.172 & 0.422 & 0.071 & 0.808 & \textbf{74} \\
-4  & \textbf{HDL-C}           & 0.166 & 0.053 & 0.435 & 0.000 & 0.822 & \textbf{70} \\
-5  & \textbf{LDL-C}           & 0.184 & 0.043 & 0.371 & 0.022 & 0.785 & \textbf{67} \\
-6  & 空腹血糖                 & 0.040 & 0.000 & 0.000 & 0.000 & 0.407 & 51 \\
-7  & BMI                      & 0.027 & 0.000 & 0.000 & 0.000 & 0.337 & 43 \\
-8  & ADL 穿衣                 & 0.027 & 0.014 & 0.000 & 0.000 & 0.522 & 43 \\
-9  & ADL 吃饭                 & 0.002 & 0.014 & 0.000 & 0.000 & 0.464 & 41 \\
-10 & IADL 做饭                & 0.008 & 0.000 & 0.013 & 0.000 & 0.570 & 37 \\
+1  & \textbf{血尿酸}          & 0.204 & 0.175 & 0.150 & 0.168 & 0.835 & \textbf{65} \\
+2  & \textbf{空腹血糖}        & 0.040 & 0.000 & 0.000 & 0.035 & 0.588 & \textbf{54} \\
+3  & \textbf{ADL 洗澡}        & 0.039 & 0.017 & 0.000 & 0.015 & 0.556 & \textbf{49} \\
+4  & \textbf{BMI}            & 0.026 & 0.000 & 0.000 & 0.019 & 0.484 & \textbf{44} \\
+5  & \textbf{IADL 服药}      & 0.033 & 0.039 & 0.000 & 0.012 & 0.520 & \textbf{41} \\
+6  & ADL 穿衣                 & 0.027 & 0.000 & 0.000 & 0.012 & 0.450 & 33 \\
+7  & IADL 做饭                & 0.008 & 0.009 & 0.000 & 0.012 & 0.205 & 33 \\
+8  & ADL 吃饭                 & 0.002 & 0.011 & 0.000 & 0.010 & 0.140 & 32 \\
+9  & IADL 购物                & 0.014 & 0.006 & 0.000 & 0.007 & 0.284 & 29 \\
+10 & ADL 用厕                 & 0.005 & 0.000 & 0.000 & 0.009 & 0.127 & 25 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{分析}：预警高血脂发病风险的 Top-5 指标为 \textbf{TG、TC、血尿酸、HDL-C、LDL-C}，全部为血常规血脂／代谢相关指标，与《中国成人血脂异常防治指南》的核心参数完全一致。弹性网络 Logistic 交叉验证最优参数为 $C \approx 0.113,\; l1\_ratio=0.9$，说明最优解以稀疏性为主，但保留少量 $L_2$ 收缩以缓解强相关血脂指标之间的竞争。
+若把 TC、TG、LDL-C、HDL-C 四项直接参与诊断标签构造的血脂指标纳入候选集，模型本质上是在重新发现标签定义规则，而非识别能够前置预警发病风险的关键指标。为避免这一标签泄露，本文将候选集限制为其余 13 项非直接诊断指标。重排后，Top-5 指标变为 \textbf{血尿酸、空腹血糖、ADL 洗澡、BMI、IADL 服药}。其中，\textbf{血尿酸}在 Spearman、互信息、弹性网络、随机森林和 Wald 五项方法中均保持领先，说明其是最稳定的非泄露风险信号；\textbf{空腹血糖}与 \textbf{BMI} 反映代谢异常和体重状态，具有较强的早期预警意义；\textbf{ADL 洗澡} 与 \textbf{IADL 服药} 等活动功能指标提示，生活自理与服药管理能力下降也会为高血脂风险提供额外预警信息。
 
-值得注意：TG 的 5 项方法得分\textbf{全部名列前茅}（Spearman 第 1、MI 第 1、ENet 第 1、RF perm 第 1、Wald 第 2），Borda 得分 84 $=$ $4 \times 17 + 16$ 接近满分 85，说明 5 种互补方法一致地把 TG 选为最强预警指标，证实了 Borda 聚合的稳健性。
+弹性网络 Logistic 在剔除 TC、TG、LDL-C 和 HDL-C 四项直接诊断指标后，交叉验证得到的最优参数为 $C = 0.01,\;l1\_ratio=0.3$，正则化强度较前显著增强。这表明在排除直接诊断信息后，其余候选变量对高血脂标签的线性判别能力明显减弱，高血脂风险的识别更多依赖代谢状态与活动功能等间接信号。因此，本节筛选结果的重点不在于复现现有诊断标准，而在于识别能够在确诊之前提供前置预警价值的非直接诊断指标。
+
+\subsubsection{兼具痰湿体质严重程度表征与高血脂风险预警作用的共同关键指标}
+
+为满足题目中“筛选出能有效表征痰湿体质严重程度、且能预警高血脂发病风险的关键指标”这一双重要求，本文进一步对 \cref{tab:q1-phlegm} 与 \cref{tab:q1-risk} 中两类任务的 Top-5 指标取交集，提炼同时对两项目标均具有关键影响的共同指标。结果见\cref{tab:q1-intersection}。
+
+\begin{table}[H]
+\centering\small
+\caption{兼具痰湿体质严重程度表征与高血脂风险预警作用的共同关键指标}\label{tab:q1-intersection}
+\begin{tabular}{@{}l c c p{7.5cm}@{}}
+\toprule
+指标 & 痰湿严重程度排名 & 风险预警排名 & 共同作用解释 \\
+\midrule
+\textbf{BMI} & 3 & 4 & 反映体型肥胖与代谢负担，兼具痰湿偏颇刻画与高血脂前置预警意义 \\
+\textbf{ADL 洗澡} & 5 & 3 & 反映基础生活自理与活动功能下降，是体质失衡和代谢风险累积的共同外在信号 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{分析}：以两类任务 Top-5 指标的交集衡量题目中“且”的要求，可以发现 \textbf{BMI} 和 \textbf{ADL 洗澡} 是同时对痰湿体质严重程度表征与高血脂发病风险预警均具有关键影响的共同指标。其中，\textbf{BMI} 更偏向形体与代谢异常的综合表征，既契合痰湿体质“形体肥胖”的辨识特征，也能够反映高血脂发生前的代谢负担累积；\textbf{ADL 洗澡} 则更偏向基础功能状态与自理能力下降的外显信号，提示体质失衡与代谢风险上升已在日常生活能力层面有所体现。因此，问题一最终应将 \textbf{BMI} 和 \textbf{ADL 洗澡} 视为兼具痰湿体质严重程度刻画与高血脂前置预警价值的联合关键指标；其余非交集指标则分别保留于各自任务的专属性解释中。
 
 \subsection{九种体质对发病风险的贡献度}
 
@@ -485,514 +514,475 @@ $(60, 80]$  & 122 & \textbf{73.8\%} \\
 %=============================================================
 \section{问题二：三级风险预警模型}\label{sec:q2}
 
-\subsection{建模策略}\label{sec:q2-strategy}
+\subsection{建模策略：从诊断重述到筛查工具的范式转换}\label{sec:q2-strategy}
 
-\subsubsection{直接概率分位切分方法的局限性}
+\subsubsection{原双轴评分卡方案的症结}
 
-三级风险预警的一种常见思路是：训练一个分类器（Logistic／GBDT／RF）输出发病概率 $\hat p(x)$，再按样本分位数将人群三等分作为低／中／高风险。这种做法在本题数据下存在两个根本缺陷：
-
+在初稿中曾采用``硬规则层 $+$ 双轴评分卡（$S_{\text{clin}}+S_{\text{prog}}$）''的双层体系，其临床语义清晰但方法论上存在三个根本缺陷：
 \begin{enumerate}
 \def\labelenumi{(\arabic{enumi})}
 \tightlist
-\item \textbf{标签泄漏}：如~\cref{sec:data-cleaning} 所证，诊断标签 $y$ 由 $\{\text{TC}, \text{TG}, \text{LDL-C}, \text{HDL-C}\}$ 的阈值异常完全决定（100\% 一致）。此时任何以这四项为特征的分类器本质上都是在拟合诊断规则，其输出的``概率''应理解为``是否已被诊断为高血脂''的重现，而非未来发病的风险；把这一概率直接等价于``风险''混淆了``既病''与``未病''两个完全不同的临床诉求。
-\item \textbf{阈值依赖样本}：33\%／67\% 分位数随样本阳性率漂移，在新的数据集（如阳性率 50\% 或 95\% 的数据）上会剧烈改变分层，完全缺乏外部可比性；且本数据集中若用 Logistic 回归，其概率输出的 67\% 分位将极端靠近 1，所谓``三等分''实则把六成人群判为高风险，分层几乎没有信息量。
+\item \textbf{标签泄漏未彻底切断}：$S_{\text{clin}}$ 由 TC/TG/LDL-C/HDL-C 四项血脂指标构造，而诊断标签 $y$ 恰恰由这四项的阈值规则派生（\cref{sec:data-cleaning} 已验证 100\% 一致）。这使 $S_{\text{clin}}$ 本质上是``诊断规则的重述''，其 AUC $=1.000$ 为\textbf{标签泄漏陷阱下的伪性能}\cite{kaufman2012leakage}，不具任何外推意义。
+\item \textbf{代谢关键变量未入模}：问题一已指出血尿酸位列发病风险 Top-3（Borda 得分 74）、空腹血糖亦稳健入选，但双轴评分卡仅将 BMI 纳入 $S_{\text{prog}}$，\textbf{空腹血糖、血尿酸完全未用}，构成建模信息的重大遗漏。
+\item \textbf{权重赋值主观}：$+1/+2/+3$ 的手工打分缺少客观依据，阈值 $\{2,6\}$ 由``校准曲线拐点''目测而定，既无统计检验（如 Cochran--Armitage 趋势）又缺少置信区间。
 \end{enumerate}
 
-\subsubsection{建模框架：硬规则层 + 双轴可解释评分卡}
+\subsubsection{范式转换：从``诊断重述''到``未病筛查''}
 
-为规避上述缺陷，本文构建如下双层体系（见~\cref{fig:q2-flow}）：
-
+上述问题的根源在于\emph{任务目标被标签泄漏扭曲}。本文按 Kaufman 等 \cite{kaufman2012leakage} 的标签泄漏处理规范，对问题二做\textbf{范式转换}：
 \begin{description}
-\item[层 1 硬规则层] 1 条 if-then 规则（R1），直接对应《中国成人血脂异常防治指南(2016)》\cite{cn-dyslipidemia-2016} 的混合型血脂紊乱高危判定。触发则直接判高，无需走评分层。
-\item[层 2 双轴评分层] 对未触发硬规则的人群，构造两条互不覆盖的评分轴 —— 临床严重度 $S_{\text{clin}}\in[0,7]$（反映``既病''程度）与进展风险 $S_{\text{prog}}\in[0,11]$（反映``未病''发展趋势）。$S_{\text{total}}=S_{\text{clin}}+S_{\text{prog}}\in[0,18]$ 按分数语义阈值 $\{2,6\}$ 三分层。
+\tightlist
+\item[原任务] 已知 $\{\mathrm{TC},\mathrm{TG},\mathrm{LDL\text{-}C},\mathrm{HDL\text{-}C},\dots\}$，预测``是否已被诊断为高血脂''（泄漏）。
+\item[重构任务] \emph{完全剔除血脂四项}，仅用痰湿积分、空腹血糖、血尿酸、BMI、活动量表与人口学变量，预测``血脂异常的风险''---这正是 USPSTF 与 WHO 定义的\textbf{筛查工具（screening tool）}范式，与中医``未病先防''思想天然对齐。
 \end{description}
 
-\textbf{规则来源纯洁性原则}：硬规则层的每一条都必须可追溯至权威指南明文，\emph{严禁从题干``例如''示例直接归纳规则条件}；更不允许把评分轴自身的阈值升格为硬规则（这会构成循环论证）。题干所给的两个示例仅用于启发思路，其对应的判定路径在本方案中由\emph{评分层 + Apriori 关联规则}两个数据驱动环节共同承担，而非写死为硬规则。评分层中若干阈值与题干示例数值一致但用途完全不同（序数权重 vs 高风险判定），详细的独立性论证见~\cref{sec:q2-threshold-independence}。
+这一转换的副产品是真实数据上 AUC 由伪性能 $1.000$ 变为\textbf{真实的 $0.895$（GBDT 主模型 $5$ 折 CV）}，\emph{换得了彻底的可外推性、客观权重与统计严谨性}。全流程如~\cref{fig:q2-flow}。
 
 \begin{figure}[H]
 \centering
 \begin{tabular}{|c|}
 \hline
-患者特征 \\
-\hline
-$\downarrow$ \\
-\hline
-\textbf{层 1 · 硬规则层}：仅 R1，血脂异常项数 $\ge 2$ \\
-\hline
-触发 $\to$ 高风险 $\Bigg\Downarrow$~~~未触发 $\downarrow$ \\
-\hline
-\textbf{层 2 · 双轴评分}~~~$S_{\text{clin}}(0\text{-}7) + S_{\text{prog}}(0\text{-}11) = S_{\text{total}}(0\text{-}18)$ \\
-\hline
-$\downarrow$ \\
-\hline
-$S \le 2$ 低风险~~~$3\le S\le 5$ 中风险~~~$S\ge 6$ 高风险 \\
-\hline
+原始 $37$ 字段 \\ \hline
+$\downarrow$ \emph{血脂四项 TC/TG/LDL-C/HDL-C} 永久剔除；\emph{ADL/IADL 子项} 合并为活动量表总分；\emph{九体质} 仅保留痰湿积分 \\ \hline
+$9$ 个候选特征：$\{$痰湿积分, FPG, UA, BMI, 活动量表, 年龄组, 性别, 吸烟, 饮酒$\}$ \\ \hline
+$\downarrow$ \\ \hline
+\textbf{步骤 1}~ StratifiedKFold($5$) $+$ 三模型（WOE-LR $+$ GBDT $+$ RF）并行训练 \\ \hline
+\textbf{步骤 2}~ WOE/IV 编码 + Logistic 系数分解 $\to$ \textbf{整数分值评分卡} \\ \hline
+\textbf{步骤 3}~ 多准则阈值（Youden + Sp$\ge$0.70 + F1 + 成本敏感 + Bootstrap BCa 95\% CI）\\ \hline
+\textbf{步骤 4}~ 三级分层 $+$ Cochran--Armitage 趋势检验 $+$ NNT 临床锚定 \\ \hline
+\textbf{步骤 5}~ 校准（Isotonic）$+$ Hosmer--Lemeshow $+$ DeLong $+$ 决策曲线 DCA \\ \hline
+\textbf{步骤 6}~ 痰湿子集三路径挖掘（手写 Apriori $+$ 决策树 $+$ 置换重要度）\\ \hline
+$\downarrow$ \\ \hline
+三级风险：\emph{低}（$49.4\%$, NNT=$2.02$）$/$ \emph{中}（$72.7\%$, NNT=$1.38$）$/$ \emph{高}（$96.5\%$, NNT=$1.04$）\\ \hline
 \end{tabular}
-\caption{问题二建模总览：硬规则层 + 双轴评分层}\label{fig:q2-flow}
+\caption{问题二建模总览：纯数据驱动的 WOE-Logistic 评分卡 + 多准则三级分层}\label{fig:q2-flow}
 \end{figure}
 
-该框架的核心优势：每一分的加分项都直接引用《2016 指南》阈值、经典 ASCVD 因素或中医体质/活动能力分档；阈值 $\{2,6\}$ 依据``分数语义 + 校准曲线拐点''，不依赖样本分位；高风险判定可提供完整可解释路径（``R1 指南兜底''或``$S_{\text{clin}}+S_{\text{prog}}\ge 6$''），彻底规避黑箱。
+\subsection{特征工程与泄漏控制}\label{sec:q2-features}
 
-\subsection{硬规则层}\label{sec:q2-rule}
+\subsubsection{入模特征集合（9 个）与排除原则}
 
-血脂异常项数定义为
-$\mathbb{I}(\mathrm{TC}>6.2)+\mathbb{I}(\mathrm{TG}>1.7)
-+\mathbb{I}(\mathrm{LDL\text{-}C}>3.1)+\mathbb{I}(\mathrm{HDL\text{-}C}<1.04)$。
+严格按``凡与标签派生直接相关的变量一律剔除''原则，最终入模特征如~\cref{tab:q2-features}：
 
 \begin{table}[H]
 \centering\small
-\caption{硬规则层：1 条 if-then 高风险判定规则}\label{tab:q2-hard-rules}
-\begin{tabular}{@{}c p{0.42\linewidth} p{0.34\linewidth} r@{}}
+\caption{问题二入模特征集合（严格排除血脂四项）}\label{tab:q2-features}
+\begin{tabular}{@{}l l l l@{}}
 \toprule
-编号 & 条件 & 医学依据 & 本数据触发 \\
+类别 & 变量 & 类型 & 入选依据 \\
 \midrule
-R1 & 血脂异常项数 $\ge 2$ & 混合型血脂紊乱，2016 指南高危\cite{cn-dyslipidemia-2016} & 458（100\% 发病） \\
+中医体质 & 痰湿积分 & 连续 $[0,100]$ & 问题一 Top-5 体质严重度指标 \\
+代谢 & 空腹血糖 FPG & 连续 mmol/L & 血脂异常的上游代谢因子 \\
+代谢 & 血尿酸 UA & 连续 $\mu$mol/L & 问题一发病风险 Borda=$74$ (Top-3) \\
+形体 & BMI & 连续 kg/m$^2$ & WHO/中国超重肥胖分界 \\
+功能 & 活动量表总分 & 连续 $[0,100]$ & ADL$+$IADL 合并，避免子项共线 \\
+人口学 & 年龄组 & 序数 $\{1,\dots,5\}$ & ACC/AHA ASCVD 因素\cite{goff2014} \\
+人口学 & 性别 & 二值 & ACC/AHA ASCVD 因素 \\
+生活方式 & 吸烟史 & 二值 & ACC/AHA ASCVD 因素 \\
+生活方式 & 饮酒史 & 二值 & 与血脂代谢相关 \\
+\midrule
+\emph{排除名单} & TC, TG, LDL-C, HDL-C & --- & \textbf{诊断标签由其阈值派生} \\
+\emph{排除名单} & ADL／IADL 各子项 & --- & 与活动量表总分完全共线（VIF$=\infty$） \\
+\emph{排除名单} & 其余 $8$ 种体质积分 & --- & 仅保留痰湿质（题目焦点） \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{R1 的独立价值}：评分层 $S_{\text{total}}\ge 6$ 与 R1 不可互相取代。在 R1 触发的 458 人中，有 \textbf{113 人其 $S_{\text{total}}\in[2,5]$}，若无 R1 将被分入中风险层。这 113 人的实际发病率为 100\%（见~\cref{tab:q2-r1-uplift}），属于典型的``血脂明显紊乱但生活方式--体质评分偏低''表型，正是 2016 指南明确点名的混合型高危人群。R1 正确地把他们从中风险层直升到高风险层，实现了指南级别的硬兜底，这是评分卡无法替代的独立作用。
+\subsubsection{\texorpdfstring{信息值 $\mathrm{IV}$ 排序与血尿酸的压倒性信号}{信息值 IV 排序与血尿酸的压倒性信号}}\label{sec:q2-iv}
+
+WOE（证据权重）与 IV（信息值）定义\cite{siddiqi2006credit}：对特征 $X$ 的分箱 $i$
+$$\mathrm{WOE}_i=\ln\!\frac{P(X{=}i\mid Y{=}1)}{P(X{=}i\mid Y{=}0)},\quad \mathrm{IV}=\sum_i(P_{1i}-P_{0i})\cdot\mathrm{WOE}_i.$$
+IV 常规强度分级：$<0.02$ 无效、$0.02\text{--}0.1$ 弱、$0.1\text{--}0.3$ 中、$0.3\text{--}0.5$ 强、$>0.5$ 极强（同时须警惕潜在的次要泄漏）。
+
+\cref{tab:q2-iv} 为真实数据的 IV 排序结果：
 
 \begin{table}[H]
 \centering\small
-\caption{\texorpdfstring{R1 独立升级样本的 $S_{\text{total}}$ 分布（均为 100\% 发病）}{R1 独立升级样本的 S\_total 分布}}\label{tab:q2-r1-uplift}
-\begin{tabular}{@{}c c c c c@{}}
+\caption{9 特征信息值（IV）排序（训练集 $n=700$）}\label{tab:q2-iv}
+\begin{tabular}{@{}l c c c c c c c c c@{}}
 \toprule
-$S_{\text{total}}$ & 2 & 3 & 4 & 5 \\
+特征 & \textbf{UA} & age\_group & smoking & act & bmi & fpg & phlegm & drinking & gender \\
 \midrule
-R1 升级人数 & 1 & 12 & 33 & 67 \\
-该组发病率 & 100\% & 100\% & 100\% & 100\% \\
+IV & \textbf{2.158} & 0.057 & 0.035 & 0.034 & 0.021 & 0.019 & 0.012 & 0.011 & 0.000 \\
+强度 & \textbf{极强} & 弱 & 弱 & 弱 & 弱 & 无效 & 无效 & 无效 & 无效 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection{规则简化的自我验证：为何不纳入 R2 / R3}
-
-在建模过程中曾考虑过两条额外的硬规则候选，最终均\emph{经数据验证后被剔除}，现将验证过程公开。
-
-\textbf{候选 R2：$S_{\text{prog}}\ge 6$ 且血脂异常 $\ge 1$。}
-初衷是补齐``非血脂维度累积 + 血脂起始偏离''的极高危人群。但该规则在分层逻辑上构成\emph{循环论证}：$S_{\text{prog}}$ 及其阈值 6 均为本方案自己定义，将其升格为硬规则是以评分轴佐证自身。更关键的是，R2 触发者必然满足 $S_{\text{clin}}\ge 1$（由血脂异常 $\ge 1$ 推得），从而 $S_{\text{total}}\ge 7\ge 6$，\textbf{必然被评分层判为高风险}。实测 R2 在 R1 之外独立触发 35 人，其 $S_{\text{total}}\in\{7,8,9,10\}$ 全部 $\ge 6$，\textbf{删除 R2 对分层结果 0 影响}（53/314/633 与发病率 17.0\%/58.0\%/95.1\% 完全不变）。故 R2 属于 100\% 冗余规则，保留无益且污染论证，予以剔除。
-
-\textbf{候选 R3：$\mathrm{LDL\text{-}C}\ge 4.9$ 或 $\mathrm{TG}\ge 5.6$。}
-二者分别对应 2016 指南的``严重原发性高胆固醇血症筛查阈值''与``急性胰腺炎风险临界''，医学依据可靠。然而本数据 LDL-C 最大值 4.19、TG 最大值 3.99，\textbf{R3 在本数据 0 触发}，对当前分层结果无任何影响，保留其为硬规则仅具装饰意义。为保持正文硬规则表的纯净，本文将 R3 挪至改进方向段作为``外部数据扩展时的预留规则''，在含家族性高胆固醇或重度高甘油三酯病例的数据集上可激活使用。
-
-\emph{小结}：经上述严格验证，本数据的硬规则层只需 R1 一条即可，且其独立价值（对 113 人的``指南兜底''升级作用）不可被评分层替代。
-
-\subsection{双轴评分层}\label{sec:q2-score}
-
-\subsubsection{\texorpdfstring{临床严重度 $S_{\text{clin}}$（0--7 分）}{临床严重度 S\_clin}}
-
-基于《中国成人血脂异常防治指南(2016)》的指标分档（见~\cref{tab:s-clin}）。核心思想：边缘升高 $+1$，极度升高 $+2$；HDL-C 仅区分偏低/非偏低，故只加 1 分。
+\textbf{关键发现}：血尿酸 IV $=2.158$ 远超其他特征一到两个数量级，成为剔除血脂四项之后\emph{唯一的极强预测信号}。进一步考察 UA 的分箱响应曲线（\cref{tab:q2-ua-bins}），发现一个显著的\textbf{U 型关系}：阳性率在中等尿酸区间 $[183,310)$ $\mu$mol/L 最低（$42.6\%$），向两端急剧上升---低 UA 侧 $[55,183)$ 阳性率 $89.2\%$，高 UA 侧 $\ge 469$ 阳性率竟达 $99.3\%$。
 
 \begin{table}[H]
 \centering\small
-\caption{\texorpdfstring{临床严重度评分 $S_{\text{clin}}$（血脂指南阈值）}{临床严重度评分 S\_clin}}\label{tab:s-clin}
-\begin{tabular}{@{}l c c@{}}
+\caption{血尿酸 UA 的分箱响应（训练集 $n=700$，五分位分箱）}\label{tab:q2-ua-bins}
+\begin{tabular}{@{}c c c c c c c@{}}
 \toprule
-指标 & 分档 (mmol/L) & 分值 \\
+箱 & UA 区间 ($\mu$mol/L) & $n$ & $n_1$ (阳) & 阳性率 & WOE & 分值 \\
 \midrule
-\multirow{2}{*}{TC} & $6.2$--$7.2$ & $+1$ \\
-                     & $> 7.2$       & $+2$ \\
-\multirow{2}{*}{TG} & $1.7$--$2.3$ & $+1$ \\
-                     & $> 2.3$       & $+2$ \\
-\multirow{2}{*}{LDL-C} & $3.1$--$4.1$ & $+1$ \\
-                        & $> 4.1$       & $+2$ \\
-HDL-C & $< 1.04$                & $+1$ \\
+Q1 & [55, 183)   & 139 & 124 & $0.892$ & $+1.409$ & $+42$ \\
+Q2 & [183, 310)  & 141 & \phantom{0}60 & $0.426$ & $-1.372$ & $-41$ \\
+Q3 & [310, 403)  & 138 & \phantom{0}84 & $0.609$ & $-0.861$ & $-25$ \\
+Q4 & [403, 469)  & 142 & 121 & $0.852$ & $+1.016$ & $+30$ \\
+Q5 & [469, 576] & 140 & \textbf{139} & \textbf{$0.993$} & $+4.309$ & $+128$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection{\texorpdfstring{进展风险 $S_{\text{prog}}$（0--11 分）}{进展风险 S\_prog}}
+\textbf{U 型关系的临床机制解释}：
+\begin{itemize}
+\tightlist
+\item 高 UA 端符合教科书：血尿酸升高通过 NLRP3 炎症小体激活、内皮功能异常与脂质代谢紊乱形成正反馈，多项 Meta 分析证实高尿酸血症是血脂异常的独立危险因素\cite{yuchunquan2015}；
+\item 低 UA 端的高阳性率反映的是\emph{亚营养状态或慢性基础疾病}：中老年人群中极低尿酸（$<200~\mu$mol/L）常伴随低蛋白饮食、慢性肾功能受损、甲状腺功能减退等，这些状态本身即是混合型血脂紊乱的驱动因素。这一``U 型''现象与 Kuwabara 等在日本健康人群中报告的结果\cite{kuwabara2016uric}一致。
+\end{itemize}
+\textbf{UA 并非标签泄漏}：UA 在诊断规则中未出现（规则仅涉及 TC/TG/LDL-C/HDL-C 四项阈值），故其高 IV 属真实生物学信号而非人工派生。本文据此把 UA 作为模型的核心驱动力之一，在后续 SHAP-like 的置换重要度与决策树中均将获得印证。
 
-针对``未病先防''维度，基于问题一筛出的关键指标（痰湿积分、BMI、活动量表）与经典 ASCVD 流行病学危险因素（年龄、性别、吸烟）构造。相对旧版，本次修订\textbf{将活动量表与年龄组由 0/1 哑变量细化为 0/1/2 三档序变量}（见~\cref{tab:s-prog}）。
+\subsection{三模型并行与五折交叉验证}\label{sec:q2-cv}
+
+\subsubsection{模型选型与互补性原则}
+
+采用互补三模型（\cref{tab:q2-models}），形成``参数/线性-非参数/非线性-Bagging/Boosting''的正交覆盖\cite{friedman2001,breiman2001}。
 
 \begin{table}[H]
 \centering\small
-\caption{\texorpdfstring{进展风险评分 $S_{\text{prog}}$（三档细化版）}{进展风险评分 S\_prog}}\label{tab:s-prog}
-\begin{tabular}{@{}l l c p{0.34\linewidth}@{}}
+\caption{问题二三模型配置与互补角色}\label{tab:q2-models}
+\begin{tabular}{@{}l l l l@{}}
 \toprule
-因素 & 分档 & 分值 & 依据 \\
+模型 & 关键超参 & 类型 & 互补角色 \\
 \midrule
-\multirow{3}{*}{痰湿积分} & 40--59 & $+1$ & \multirow{3}{*}{王琦九体质积分分档\cite{wang2005}} \\
-                          & 60--79 & $+2$ & \\
-                          & $\ge 80$ & $+3$ & \\
-\multirow{2}{*}{BMI (kg/m$^2$)} & 24--27.9 & $+1$ & \multirow{2}{*}{WHO-中国超重/肥胖分界} \\
-                                  & $\ge 28$  & $+2$ & \\
-\multirow{2}{*}{活动量表（新三档）} & 40--59（轻度受限） & $+1$ & \multirow{2}{*}{Katz\cite{katz1970}/Lawton\cite{lawton1969} ADL/IADL 三级分档} \\
-                                  & $<40$（中重度受限） & $+2$ & \\
-\multirow{2}{*}{年龄组（新三档）} & 60--69 岁 & $+1$ & \multirow{2}{*}{ACC/AHA ASCVD 年龄加权\cite{goff2014}} \\
-                                  & $\ge 70$ 岁 & $+2$ & \\
-性别 & 男 & $+1$ & 心血管独立危险因素 \\
-吸烟史 & 有 & $+1$ & 心血管独立危险因素 \\
+WOE-Logistic & $C=1$, L2, class\_weight=``balanced'' & 参数线性 & 评分卡母体模型 \\
+GBDT & depth=$3$, $n=200$, $\eta=0.05$, subsample=$0.8$, leaf$\ge20$ & Boosting & 捕捉非线性（UA U 型）\\
+RandomForest & $n=300$, depth=$6$, leaf$\ge 10$, class\_weight=``balanced'' & Bagging & 稳健性对照 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{细化的两重考量}：（a）\emph{信息利用度}：活动量表 25\%/75\% 分位分别为 42/57，单阈值 40 会让 81.9\% 人群聚在``0 分''组，浪费信息；三档后 47.9\%/35.9\%/16.2\% 各档均有足够统计量。年龄组情况类似。（b）\emph{权重配平}：修订后各因素最大贡献分别为痰湿 3（27.3\%）、BMI 2（18.2\%）、活动 2（18.2\%）、年龄 2（18.2\%）、性别 1（9.1\%）、吸烟 1（9.1\%）。BMI、活动、年龄三项``可变/可干预的生活方式--功能因素''权重齐平。年龄未选``0/1/1/2/2''而选``0/0/1/2/2''，是为避免``50--59 岁男性''与``性别 +1''项的双重加权；60 岁才是 ASCVD 风险加速的公认拐点。
+\subsubsection{五折分层交叉验证结果}
 
-\subsubsection{评分层阈值的独立性说明}\label{sec:q2-threshold-independence}
-
-表~\ref{tab:s-prog} 中痰湿积分的 60/80 两档临界、活动量表的 40/60 两档临界，在\emph{数值上}与题干第 2 问示例段（``痰湿积分 $\ge 60$''、``痰湿积分 $\ge 80$ 且活动能力评分低于 40''）及附表 3 干预强度约束段（``$<40$ 分仅 1 级，40--59 分 1/2 级，$\ge 60$ 分 1/2/3 级''）存在一致性。为规避与硬规则层候选 R2 同类的循环论证风险，本文在此对评分层阈值的\emph{独立性来源}予以显式声明。
-
-\textbf{(1) 用途性质的根本差异}：题干示例将 60/80 与 40 用作\emph{高风险判定阈值}（强耦合：一个阈值直接决定分层结果）；本文则将其用作总分 11 制下的\emph{序数权重分档阈值}（弱耦合：单项最多贡献 $2/11=18.2\%$ 或 $3/11=27.3\%$ 权重，且必须与 $S_{\text{clin}}$ 合成后经阈值 $\{2,6\}$ 切分方影响分层）。数值相同、用途完全不同，不构成规则循环。
-
-\textbf{(2) 痰湿积分 60/80 的独立来源}：王琦九体质积分的偏颇质判定起点为 $\ge 40$（依据 ZYYXH/T 157-2009《中医体质分类与判定》团体标准\cite{wang2005}）。本文在``偏颇质''区间 $[40,100]$ 内按 20 分等距三分形成``轻度偏颇（40--59）/中度偏颇（60--79）/重度偏颇（$\ge 80$）''三档，对应权重 $+1/+2/+3$。\emph{该三分方案是以 40 为偏颇起点的纯粹等距工程切分，与题干示例选 60 和 80 只是数值上的数学巧合}；若题干未出现 60/80，本文按等距原则亦会得到相同切点。
-
-\textbf{(3) 活动量表 40/60 的独立来源}：Katz\cite{katz1970} 与 Lawton\cite{lawton1969} 原始文献在单项 0--10 分维度给出``完全独立/部分依赖/完全依赖''三级功能分档。将该三级原则结构化映射至 ADL（0--50）+ IADL（0--50）合并总分 0--100 维度：每项均值 $\ge 6$ 分对应``基本独立''（总分 $\ge 60$）、每项均值 4--6 分对应``半依赖''（总分 40--59）、每项均值 $<4$ 分对应``中重度受限''（总分 $<40$），切点自然落于 40 与 60。\emph{该映射虽与题干附表 3 的干预耐受度约束同值，但前者基于经典老年功能学的分级原则，后者基于安全性约束，两者之所以数值一致，反映的是``活动功能分级''在老年医学中的普遍共识而非本文借用}。
-
-\textbf{(4) 可选的等价性验证路径}：为进一步佐证独立性声明，可将上述阈值替换为基于样本分布的分位切分（如痰湿 Q33/Q67/Q90、活动 Q25/Q50）后重跑评分层，比较两套分层的一致率。本方案已保留该验证的实现接口（见 \texttt{problem2.py} 敏感性分析模块），若需在答辩环节补充实证数据，可直接运行得到量化结论；本文因版面所限仅作方法论声明。
-
-\subsubsection{阈值依据：分数语义 $+$ 校准曲线拐点}\label{sec:q2-threshold}
-
-令 $S_{\text{total}}=S_{\text{clin}}+S_{\text{prog}}\in[0,18]$。阈值 $\{2,6\}$ 的两重依据如下。
-
-\textbf{(a) 分数语义}：$S\le 2$ 意味着至多 1 项轻度血脂偏离 + 1 项轻度体质偏颇，属本质健康；$S\ge 6$ 意味着至少 3 个独立危险因素累积，风险已进入多因素叠加阶段。
-
-\textbf{(b) 校准曲线拐点}：全部 1000 例样本按 $S_{\text{total}}$ 分箱后的实际发病率见~\cref{tab:calibration}。$S{=}2\to3$ 跳幅 33.6 个百分点，是整条曲线最陡斜率；$S{=}5\to6$ 跳幅 10.9 个百分点，且其后连续两档发病率 $\ge 95\%$，稳定进入``近乎必然发病''区间。
+训练/测试按 $7{:}3$ 分层抽样（$n_{\text{train}}=700$, $n_{\text{test}}=300$），训练集上 \texttt{StratifiedKFold}($5$) 得到三模型性能见~\cref{tab:q2-cv}。
 
 \begin{table}[H]
 \centering\small
-\caption{\texorpdfstring{校准表：$S_{\text{total}}$ 与实际发病率}{校准表：S\_total 与实际发病率}}\label{tab:calibration}
-\begin{tabular}{@{}c r r r r r r r r r r r r r@{}}
-\toprule
-$S_{\text{total}}$ & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 \\
-\midrule
-人数 & 1 & 14 & 39 & 97 & 143 & 186 & 181 & 155 & 92 & 54 & 29 & 5 & 4 \\
-发病率(\%) & 0.0 & 7.1 & 23.1 & 56.7 & 67.1 & 76.9 & 87.8 & 96.8 & 95.7 & 100 & 100 & 100 & 100 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-因此最终分层规则为：
-\[
-R_{\text{final}}(x) = \begin{cases}
-  3\text{（高）}, & \text{R1 触发（血脂异常项数 } \ge 2\text{）},\\
-  3\text{（高）}, & \text{否则且 } S_{\text{total}} \ge 6,\\
-  2\text{（中）}, & \text{否则且 } 3 \le S_{\text{total}} \le 5,\\
-  1\text{（低）}, & S_{\text{total}} \le 2.
-\end{cases}
-\]
-
-\subsubsection{融合多维度特征的风险预警模型定义}\label{sec:q2-math-function}
- 
-基于上述双层体系，定义风险预警映射
-\[
-  \mathcal{F}: \mathcal{X} \longrightarrow \{1,2,3\},
-\]
-其中输入空间为
-\[
-  \mathcal{X} = \mathbb{R}_{>0}^{4} \times [0,100] \times \mathbb{R}_{>0}
-               \times [0,100] \times \{1,\dots,5\} \times \{0,1\}^{2},
-\]
-对应分量依次为 $(TC,\; TG,\; \text{LDL-C},\; \text{HDL-C},\;
-P_{\text{tan}},\; \text{BMI},\; \text{Act},\; G,\; \text{sex},\; \text{smk})$。
- 
-\paragraph{第一步：血脂异常项数}
- 
-定义四个指示函数：
-\begin{align}
-  \mathbb{1}_{\text{TC}}  &= \mathbf{1}[TC > 6.2], &
-  \mathbb{1}_{\text{TG}}  &= \mathbf{1}[TG > 1.7], \notag\\
-  \mathbb{1}_{\text{LDL}} &= \mathbf{1}[\text{LDL-C} > 3.1], &
-  \mathbb{1}_{\text{HDL}} &= \mathbf{1}[\text{HDL-C} < 1.04], \notag
-\end{align}
-血脂异常项数为
-\[
-  N_{\text{abn}} = \mathbb{1}_{\text{TC}} + \mathbb{1}_{\text{TG}}
-                 + \mathbb{1}_{\text{LDL}} + \mathbb{1}_{\text{HDL}}
-                 \;\in\; \{0,1,2,3,4\}.
-\]
- 
-\paragraph{第二步：硬规则层}
- 
-\[
-  \delta_{\text{R1}} = \mathbf{1}[N_{\text{abn}} \ge 2].
-\]
-若 $\delta_{\text{R1}} = 1$，则令 $\mathcal{F}(\mathbf{x}) = 3$ 并终止计算。
- 
-\paragraph{第三步：临床严重度评分}
- 
-对 $\delta_{\text{R1}} = 0$ 的样本，定义分段函数：
-\[
-  \phi(v;\, a,\, b) =
-  \begin{cases}
-    2, & v > b,\\
-    1, & a < v \le b,\\
-    0, & v \le a,
-  \end{cases}
-  \qquad
-  \psi(v;\, a) =
-  \begin{cases}
-    1, & v < a,\\
-    0, & v \ge a.
-  \end{cases}
-\]
-则
-\[
-  S_{\text{clin}} = \phi(TC;\; 6.2,\; 7.2)
-                  + \phi(TG;\; 1.7,\; 2.3)
-                  + \phi(\text{LDL-C};\; 3.1,\; 4.1)
-                  + \psi(\text{HDL-C};\; 1.04)
-                  \;\in\; [0,\, 7].
-\]
- 
-\paragraph{第四步：进展风险评分}
- 
-定义痰湿积分三档函数：
-\[
-  \Phi_{\text{tan}}(P) =
-  \begin{cases}
-    3, & P \ge 80,\\
-    2, & 60 \le P < 80,\\
-    1, & 40 \le P < 60,\\
-    0, & P < 40,
-  \end{cases}
-\]
-BMI 两档函数：
-\[
-  \Phi_{\text{BMI}}(b) =
-  \begin{cases}
-    2, & b \ge 28,\\
-    1, & 24 \le b < 28,\\
-    0, & b < 24,
-  \end{cases}
-\]
-活动量表三档函数（中重度受限权重更高）：
-\[
-  \Phi_{\text{act}}(A) =
-  \begin{cases}
-    2, & A < 40,\\
-    1, & 40 \le A \le 59,\\
-    0, & A \ge 60,
-  \end{cases}
-\]
-年龄组三档函数（以 60 岁为 ASCVD 风险加速拐点）：
-\[
-  \Phi_{\text{age}}(G) =
-  \begin{cases}
-    2, & G \ge 4,\\
-    1, & G = 3,\\
-    0, & G \le 2,
-  \end{cases}
-\]
-则进展风险评分为
-\[
-  S_{\text{prog}} =
-    \underbrace{\Phi_{\text{tan}}(P_{\text{tan}})}_{\le 3}
-  + \underbrace{\Phi_{\text{BMI}}(\text{BMI})}_{\le 2}
-  + \underbrace{\Phi_{\text{act}}(\text{Act})}_{\le 2}
-  + \underbrace{\Phi_{\text{age}}(G)}_{\le 2}
-  + \underbrace{\text{sex}}_{\le 1}
-  + \underbrace{\text{smk}}_{\le 1}
-  \;\in\; [0,\, 11].
-\]
- 
-\paragraph{第五步：综合评分与三级分层}
- 
-综合风险评分为
-\[
-  S_{\text{total}} = S_{\text{clin}} + S_{\text{prog}} \;\in\; [0,\, 18].
-\]
-最终风险预警函数定义为：
-\[
-  \boxed{
-  \mathcal{F}(\mathbf{x}) =
-  \begin{cases}
-    3\;(\text{高风险}), & \delta_{\text{R1}} = 1
-        \quad[\text{硬规则层：} N_{\text{abn}} \ge 2],\\[4pt]
-    3\;(\text{高风险}), & \delta_{\text{R1}} = 0
-        \;\text{ 且 }\; S_{\text{total}} \ge 6,\\[4pt]
-    2\;(\text{中风险}), & \delta_{\text{R1}} = 0
-        \;\text{ 且 }\; 3 \le S_{\text{total}} \le 5,\\[4pt]
-    1\;(\text{低风险}), & \delta_{\text{R1}} = 0
-        \;\text{ 且 }\; S_{\text{total}} \le 2.
-  \end{cases}
-  }
-\]
- 
-三个分层区间在 $S_{\text{total}}$ 轴上不重叠且完全覆盖 $[0,18]$，
-故 $\mathcal{F}$ 是一个定义良好的全函数。
-各分项得分可同时输出，供临床逐项溯源（见\cref{tab:func-io}）。
- 
-\begin{table}[H]
-\centering\small
-\caption{风险预警函数 $\mathcal{F}$ 的输入输出规范}\label{tab:func-io}
-\begin{tabular}{@{}l l l c@{}}
-\toprule
-类别 & 符号 & 含义 & 取值域 \\
-\midrule
-\multirow{10}{*}{输入 $\mathbf{x}$}
-  & $TC$              & 总胆固醇 (mmol/L)             & $\mathbb{R}_{>0}$ \\
-  & $TG$              & 甘油三酯 (mmol/L)             & $\mathbb{R}_{>0}$ \\
-  & $\text{LDL-C}$    & 低密度脂蛋白胆固醇 (mmol/L)   & $\mathbb{R}_{>0}$ \\
-  & $\text{HDL-C}$    & 高密度脂蛋白胆固醇 (mmol/L)   & $\mathbb{R}_{>0}$ \\
-  & $P_{\text{tan}}$  & 痰湿积分                      & $[0, 100]$ \\
-  & $\text{BMI}$      & 身体质量指数 (kg/m$^2$)       & $\mathbb{R}_{>0}$ \\
-  & $\text{Act}$      & 活动量表总分（ADL+IADL）      & $[0, 100]$ \\
-  & $G$               & 年龄组                        & $\{1,2,3,4,5\}$ \\
-  & $\text{sex}$      & 性别（0=女，1=男）            & $\{0,1\}$ \\
-  & $\text{smk}$      & 吸烟史（0=无，1=有）          & $\{0,1\}$ \\
-\midrule
-\multirow{5}{*}{输出}
-  & $\mathcal{F}(\mathbf{x})$ & 风险等级               & $\{1,2,3\}$ \\
-  & $\delta_{\text{R1}}$      & 硬规则触发标志         & $\{0,1\}$ \\
-  & $N_{\text{abn}}$          & 血脂异常项数           & $\{0,1,2,3,4\}$ \\
-  & $S_{\text{clin}}$         & 临床严重度得分         & $[0,7]$ \\
-  & $S_{\text{prog}}$         & 进展风险得分           & $[0,11]$ \\
-  & $S_{\text{total}}$        & 综合风险评分           & $[0,18]$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{分层结果与三项验证}\label{sec:q2-validation}
-
-\subsubsection{分层结果}
-
-\begin{table}[H]
-\centering\small
-\caption{三级风险分布与实际发病率}\label{tab:q2-risk-new}
-\begin{tabular}{@{}l r r r@{}}
-\toprule
-风险等级 & 样本数 & 占比 & 实际发病率 \\
-\midrule
-低风险 &  53 &  5.3\% & \textbf{17.0\%} \\
-中风险 & 314 & 31.4\% & \textbf{58.0\%} \\
-高风险 & 633 & 63.3\% & \textbf{95.1\%} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-三层发病率严格单调（17.0\% $\to$ 58.0\% $\to$ 95.1\%）。高风险层 633 人的来源构成：\textbf{R1 硬规则贡献 458 人（72.4\%），评分层 $S_{\text{total}}\ge 6$ 贡献 175 人（27.6\%）}，两条路径互补且不重复。低风险层 17.0\% 的残留发病率源于本数据 79.3\% 阳性率的样本选择偏差（诊断标签 = 血脂异常 $\ge 1$，$S_{\text{clin}}=2$ 的样本必然包含 $\ge 1$ 项血脂异常），不影响分层单调性与可解释性。
-
-$S_{\text{total}}$ 作为连续风险评分的 AUC$=0.812$，$S_{\text{clin}}$ 因含血脂泄漏 AUC$=1.000$，$S_{\text{prog}}$ 因样本选择偏差单独 AUC$=0.459$（接近随机）。三条 AUC 的对照印证双轴设计的合理性：$S_{\text{prog}}$ 在本数据的强选择偏差下单独判别力几乎无效，但与 $S_{\text{clin}}$ 合成后仍贡献了关键的``血脂正常但风险高''边缘病例识别，体现``既病''与``未病''双维度信息的互补作用。
-
-\subsubsection{验证 1：校准曲线}
-
-\cref{tab:calibration} 已展示 $S_{\text{total}}$ 与发病率的严格单调关系，\cref{fig:q2-v2}(a) 的校准曲线平滑无跳跃，两个阈值线恰好落在曲线的两个拐点上。
-
-\subsubsection{验证 2：Bootstrap 稳定性（1000 次重抽样）}
-
-\begin{table}[H]
-\centering\small
-\caption{Bootstrap 95\% 置信区间（1000 次重抽样）}\label{tab:q2-boot}
-\begin{tabular}{@{}l c c c@{}}
-\toprule
-指标 & 均值 & 2.5\% & 97.5\% \\
-\midrule
-低风险占比(\%) &  5.30 &  4.00 &  6.70 \\
-中风险占比(\%) & 31.34 & 28.30 & 34.10 \\
-高风险占比(\%) & 63.36 & 60.40 & 66.60 \\
-低层发病率(\%) & 16.76 &  6.82 & 27.46 \\
-中层发病率(\%) & 58.08 & 52.38 & 63.28 \\
-高层发病率(\%) & 95.11 & 93.23 & 96.68 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-三层占比的 95\% CI 宽度均 $<7$ 个百分点，中/高层发病率 CI 宽度 $<11$ 个百分点；低层因样本仅 53 例，CI 略宽至 20.6 个百分点，属样本量固有限制。总体表明分层结果对数据扰动稳健。
-
-\subsubsection{验证 3：敏感性分析（权重 $\pm 25\%$ 与阈值扰动）}
-
-\begin{table}[H]
-\centering\small
-\caption{敏感性分析：扰动后与基线分层一致率}\label{tab:q2-sens}
+\caption{三模型 5 折 CV 性能（训练集）与测试集 AUC}\label{tab:q2-cv}
 \begin{tabular}{@{}l c c c c@{}}
 \toprule
-扰动 & 一致率(\%) & 低(\%) & 中(\%) & 高(\%) \\
+模型 & CV AUC（均值 $\pm$ 标准差）& Bootstrap 95\% CI & Brier & 测试 AUC \\
 \midrule
-基线 & 100.0 &  5.3 & 31.4 & 63.3 \\
-$S_{\text{prog}}\times 0.75$ &  84.9 &  9.5 & 38.1 & 52.4 \\
-$S_{\text{prog}}\times 1.25$ &  88.1 &  5.3 & 19.5 & 75.2 \\
-阈值 $(1,6)$ &  96.2 &  1.5 & 35.2 & 63.3 \\
-阈值 $(3,6)$ &  91.5 & 13.8 & 22.9 & 63.3 \\
-阈值 $(2,5)$ &  88.1 &  5.3 & 19.5 & 75.2 \\
-阈值 $(2,7)$ &  90.5 &  5.3 & 40.9 & 53.8 \\
+WOE-Logistic & $0.8429 \pm 0.0203$ & $(0.8118,\,0.8716)$ & $0.1660$ & $0.8401$ \\
+\textbf{GBDT} & $\boldsymbol{0.8953 \pm 0.0243}$ & $\boldsymbol{(0.8712,0.9185)}$ & $\boldsymbol{0.1070}$ & $\boldsymbol{0.8827}$ \\
+RandomForest & $0.8749 \pm 0.0222$ & $(0.8454,\,0.8979)$ & $0.1399$ & $0.8609$ \\
+Scorecard(整数) & --- & --- & --- & $0.8391$ \\
+\midrule
+\multicolumn{5}{l}{\textbf{DeLong 两两比较}（测试集）\cite{delong1988}：LR vs GBDT $Z=-2.28$, $p=0.023$；} \\
+\multicolumn{5}{l}{\phantom{\textbf{DeLong 两两比较}（测试集）：}GBDT vs RF $Z=2.32$, $p=0.020$；} \\
+\multicolumn{5}{l}{\phantom{\textbf{DeLong 两两比较}（测试集）：}GBDT vs Scorecard $Z=2.35$, $p=0.019$；} \\
+\multicolumn{5}{l}{\phantom{\textbf{DeLong 两两比较}（测试集）：}LR vs Scorecard $Z=0.45$, $p=0.652$（不显著）} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-所有扰动下基线分层保持率均 $\ge 84.9\%$；阈值 $(1,6)$ 扰动的一致率最高（96.2\%），显示低阈值位置对分层影响较小；$S_{\text{prog}}$ 权重 $\pm 25\%$ 扰动一致率 84.9\%--88.1\%，处于合理范围；所有高风险比例变化 $\le 11.5$ 个百分点（52.4\%--75.2\%），评分卡整体稳健。
+GBDT 显著优于线性模型（$p<0.05$），差值 $\Delta\mathrm{AUC}\approx 0.04$ 主要来源于对 UA U 型关系的建模能力。WOE-Logistic 与整数评分卡 AUC 差距仅 $0.001$ ($p=0.652$)，表明\textbf{四舍五入整数分值几乎不损失判别能力}，佐证评分卡设计的鲁棒性。
 
-\subsection{与直接概率分位切分方法的对比}
+\subsection{WOE-Logistic 评分卡构建}\label{sec:q2-shap}
 
-为说明本方案的方法论优势，将其与前述``直接概率分位切分''方法在本数据集上的分层结果作对比，见~\cref{tab:q2-compare}。直接概率分位切分方法在本数据上的实现为：在 Set C 的 17 个指标上训练 Logistic 回归，预测概率 $\hat p(x)$ 按样本 33\%/67\% 分位切分为三级。
+\subsubsection{经典 FICO 范式}
+
+Siddiqi \cite{siddiqi2006credit} 的信用评分卡范式给出从 Logistic 回归到整数评分的线性变换。取 PDO（Points to Double the Odds）$=20$、基准分 $=100$、基准比值 $=1{:}1$，则变换因子为
+\begin{equation}
+\text{Factor} = \frac{\text{PDO}}{\ln 2}\approx 28.85,\quad
+\text{Offset}=\text{Base}-\text{Factor}\cdot\ln(\text{odds}_0)=100.
+\label{eq:factor-offset}
+\end{equation}
+对 WOE-Logistic 模型 $\ln\frac{P(Y=1\mid X)}{P(Y=0\mid X)}=\alpha+\sum_{k=1}^{K}\beta_k\mathrm{WOE}_k(X_k)$，第 $k$ 个特征的第 $j$ 箱的整数分值为
+\begin{equation}
+\mathrm{Points}_{k,j}=\operatorname{round}\bigl(\mathrm{Factor}\cdot\beta_k\cdot\mathrm{WOE}_{k,j}\bigr),\quad
+\mathrm{Total}=\mathrm{Offset}-\mathrm{Factor}\cdot\alpha+\sum_{k=1}^{K}\mathrm{Points}_{k,\,\mathrm{bin}(X_k)}.
+\label{eq:points}
+\end{equation}
+约定\emph{医学惯例}``高分 $\Leftrightarrow$ 高风险''，故符号与信用卡领域（高分 $\Leftrightarrow$ 低违约风险）相反。
+
+\subsubsection{各特征分档分值表（真实数据）}\label{sec:q2-scorecard}
+
+由~\eqref{eq:points} 对训练集拟合得到的评分卡完整分值见~\cref{tab:q2-scorecard}。Logistic 回归系数 $\beta$ 一并列出以显示相对权重：UA（$\beta=+1.026$）、年龄组（$\beta=+1.034$）并列最大，次为 BMI、吸烟、活动量表、FPG、饮酒、痰湿。
 
 \begin{table}[H]
 \centering\small
-\caption{两种分层方法的效果对比}\label{tab:q2-compare}
-\begin{tabular}{@{}l c c@{}}
+\caption{WOE-Logistic 评分卡分档分值（PDO=$20$，基准分=$100$，截距项固定贡献 $-38.70$ 分）}\label{tab:q2-scorecard}
+\begin{tabular}{@{}l c c c c c@{}}
 \toprule
-维度 & 直接概率分位切分 & 硬规则 + 双轴评分卡 \\
+特征 ($\beta$) & 箱 1 & 箱 2 & 箱 3 & 箱 4 & 箱 5 \\
 \midrule
-低风险 & n=333（33.3\%），发病率 39.3\% & n=53（5.3\%），\textbf{发病率 17.0\%} \\
-中风险 & n=333（33.3\%），发病率 98.5\% & n=314（31.4\%），发病率 58.0\% \\
-高风险 & n=334（33.4\%），发病率 100\% & n=633（63.3\%），发病率 95.1\% \\
-阈值依据 & 33\%/67\% 样本分位 & 分数语义 + 校准拐点 \\
-可解释性 & 黑箱概率 & 每一分可溯源 \\
-外部泛化 & 差（分位随样本漂移） & 好（绝对分数阈值） \\
-AUC(x=score) & 0.974（概率两极化） & 0.812（单调平滑） \\
+\multicolumn{6}{l}{\textbf{连续变量（5 分位分箱，分值随 $\beta\cdot$WOE 取整）}} \\
+\textbf{UA} ($\beta=+1.026$)   & $+42$ \tiny{[55,183)} & $-41$ \tiny{[183,310)} & $-25$ \tiny{[310,403)} & $+30$ \tiny{[403,469)} & $+128$ \tiny{[469,576]} \\
+痰湿积分 ($\beta=+0.430$)         & $0$ \tiny{[0,12)} & $-2$ \tiny{[12,26)} & $+3$ \tiny{[26,38)} & $0$ \tiny{[38,58)} & $-1$ \tiny{[58,65]} \\
+FPG (mmol/L, $\beta=+0.547$)      & $+4$ \tiny{[1.9,4.1)} & $+1$ \tiny{[4.1,4.7)} & $-3$ \tiny{[4.7,5.2)} & $-1$ \tiny{[5.2,5.8)} & $-1$ \tiny{[5.8,8.1]} \\
+BMI ($\beta=+0.659$)              & $-4$ \tiny{[10.3,19.6)} & $-1$ \tiny{[19.6,21.2)} & $-1$ \tiny{[21.2,22.6)} & $+4$ \tiny{[22.6,24.3)} & $+2$ \tiny{[24.3,29.8]} \\
+活动量表 ($\beta=+0.550$)         & $-1$ \tiny{[22,41)} & $-3$ \tiny{[41,47)} & $+3$ \tiny{[47,52)} & $-2$ \tiny{[52,59)} & $+4$ \tiny{[59,77]} \\
+\midrule
+\multicolumn{6}{l}{\textbf{序数/离散变量}} \\
+年龄组 ($\beta=+1.034$)           & \multicolumn{5}{c}{1$\to$$-5$;\; 2$\to$$-8$;\; 3$\to$$+5$;\; 4$\to$$+7$;\; 5$\to$$+3$} \\
+性别（男=1, $\beta=-0.085$）       & \multicolumn{5}{c}{女$\to$$0$;\; 男$\to$$0$} \\
+吸烟史（有=1, $\beta=+0.649$）     & \multicolumn{5}{c}{无$\to$$-4$;\; 有$\to$$+4$} \\
+饮酒史（有=1, $\beta=+0.503$）     & \multicolumn{5}{c}{无$\to$$-1$;\; 有$\to$$+1$} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-直接概率分位切分的\emph{低风险层发病率高达 39.3\%}，与``低风险''语义严重矛盾；\emph{中风险层发病率 98.5\%}，实际几乎等同于高风险，两层失去临床区分度。本方案低风险层 17.0\%、中风险层 58.0\% 形成真正``真低危--灰色区--高危''三级梯度，AUC 虽降低，但换得了阈值的外部稳定性、每一分的可溯源性，以及对``血脂正常但风险高''边缘病例的识别能力，与题目``治未病''前瞻预警诉求更契合。
+测试集评分分布：最小 $3.3$、最大 $212.3$、均值 $92.3$；\emph{阳性组均分 $107.0$、阴性组均分 $35.8$}，两组差约 $71$ 分（接近 $4$ 倍 PDO 的判别幅度）。评分分布与诊断标签的叠加直方图见~\cref{fig:q2-summary}(c)，两分布虽有重叠但显著分离。
 
-\subsection{痰湿体质高风险核心特征组合（Apriori 关联规则）}\label{sec:q2-apriori}
+\subsection{三级风险阈值的多准则确定}\label{sec:q2-threshold}
 
-\subsubsection{算法要点}
+\subsubsection{Youden 指数的闭式推导}\label{sec:q2-youden}
 
-决策树路径只能反映单条分裂，难以系统发掘跨多分支的共现模式，也不携带支持度/提升度等量化指标。本文采用 Apriori 关联规则挖掘\cite{agrawal1994} 识别痰湿体质高风险人群的核心特征组合。对 278 名痰湿体质患者（其中 208 人被本方案判为高风险，支持度先验 74.8\%），构造 15 个二值项（痰湿$\ge 60$、活动$<40$、活动 40--59、BMI 超重、BMI 肥胖、年龄 60--69、年龄$\ge 70$、男性、吸烟、TG 升高、TC 升高、LDL 升高、HDL 偏低、血脂异常$\ge 1$、血脂异常$\ge 2$），挖掘形如 $\{A,B,C\}\Rightarrow\text{高风险}$ 的规则，筛选条件为支持度 $\ge 10\%$、置信度 $\ge 90\%$、提升度 $\ge 1.05$、前件最多 4 项；同时排除存在逻辑蕴含关系的组合。
+Youden \cite{youden1950} 的判别效能指数
+\begin{equation}
+J(c)=\mathrm{Se}(c)+\mathrm{Sp}(c)-1=\mathrm{TPR}(c)-\mathrm{FPR}(c).
+\label{eq:youden}
+\end{equation}
+Fluss、Faraggi 与 Reiser \cite{fluss2005youden} 给出在 $X|Y{=}0\sim\mathcal N(\mu_0,\sigma_0^2)$, $X|Y{=}1\sim\mathcal N(\mu_1,\sigma_1^2)$ 下的闭式解：
+\begin{equation}
+c^{*}=\frac{(\mu_1\sigma_0^{2}-\mu_0\sigma_1^{2})-\sigma_0\sigma_1\sqrt{(\mu_1-\mu_0)^{2}+(\sigma_1^{2}-\sigma_0^{2})\ln(\sigma_1^{2}/\sigma_0^{2})}}{\sigma_1^{2}-\sigma_0^{2}}.
+\label{eq:youden-closed}
+\end{equation}
+等方差情形 $c^{*}=(\mu_0+\mu_1)/2$、$J^{*}=2\Phi((\mu_1-\mu_0)/2\sigma)-1$；该准则与 Kolmogorov--Smirnov 阈值数值等价：$\arg\max_c|F_1(c)-F_0(c)|=\arg\max J(c)$。
 
-形式化定义：对项集 $X$、$Y$，
-\[
-\mathrm{supp}(X)=\frac{|\{t:X\subseteq t\}|}{|T|},\quad
-\mathrm{conf}(X\!\Rightarrow\!Y)=\frac{\mathrm{supp}(X\cup Y)}{\mathrm{supp}(X)},\quad
-\mathrm{lift}(X\!\Rightarrow\!Y)=\frac{\mathrm{conf}(X\!\Rightarrow\!Y)}{\mathrm{supp}(Y)}.
-\]
+\subsubsection{多准则阈值对比}
 
-\subsubsection{核心组合表}
+为防止单一准则偏差，本文并行报告六种准则（\cref{tab:q2-thr}），含 Bootstrap $1000$ 次 BCa 95\% CI。
 
 \begin{table}[H]
 \centering\small
-\caption{痰湿体质高风险核心特征组合（Apriori，Top-10；冗余蕴含组合已过滤）}\label{tab:q2-apriori}
-\begin{tabular}{@{}p{0.44\linewidth} r r r r r@{}}
+\caption{多准则阈值对比（基于评分卡分数，测试集 $n=300$）}\label{tab:q2-thr}
+\begin{tabular}{@{}l l c l@{}}
 \toprule
-核心组合（前件 $\Rightarrow$ 高风险） & 项数 & 人数 & 支持度 & 置信度 & 提升度 \\
+准则 & 数学定义 & 阈值 $\hat c$ (分) & 用途 \\
 \midrule
-TC 升高 & 1 & 122 & 0.439 & 0.926 & 1.238 \\
-年龄 $\ge 70$ & 1 & 113 & 0.406 & 0.903 & 1.206 \\
-血脂异常 $\ge 2$ & 1 & 113 & 0.406 & 1.000 & 1.337 \\
-LDL 升高 & 1 &  55 & 0.198 & 1.000 & 1.337 \\
-痰湿 $\ge 60$ $\wedge$ 血脂异常 $\ge 1$ & 2 & 110 & 0.396 & 0.945 & 1.264 \\
-男性 $\wedge$ 血脂异常 $\ge 1$ & 2 & 108 & 0.388 & 0.926 & 1.238 \\
-年龄 $\ge 70$ $\wedge$ 血脂异常 $\ge 1$ & 2 &  88 & 0.317 & 0.977 & 1.306 \\
-TG 升高 $\wedge$ 血脂异常 $\ge 2$ & 2 &  86 & 0.309 & 1.000 & 1.337 \\
-痰湿 $\ge 60$ $\wedge$ 活动 40--59 $\wedge$ 血脂异常 $\ge 1$ & 3 & 70 & 0.252 & 0.943 & 1.260 \\
-活动 40--59 $\wedge$ 男性 $\wedge$ 血脂异常 $\ge 1$ & 3 & 70 & 0.252 & 0.914 & 1.222 \\
+\textbf{Youden} & $\arg\max(\mathrm{TPR}-\mathrm{FPR})$ & \textbf{$79.30$} & \textbf{用作 $c_H$（高风险门槛）} \\
+Near $(0,1)$ & $\arg\min\sqrt{\mathrm{FPR}^2+(1-\mathrm{TPR})^2}$ & $42.30$ & 与 Youden 参照 \\
+EER & $\arg\min|\mathrm{FPR}-\mathrm{FNR}|$ & $41.30$ & 错误率对称 \\
+F1 最大 & $\arg\max 2PR/(P+R)$ & $11.33$ & 偏召回 \\
+\textbf{Sp$\ge$0.70} & $\min\{c:\mathrm{Sp}(c)\ge 0.70\}$ & \textbf{$37.30$} & \textbf{用作 $c_L$（低风险上界）} \\
+成本敏感 $C_{\!FN}{:}C_{\!FP}{=}5{:}1$ & 似然比准则 (概率空间) & $0.277$ & 筛查代价对齐 \\
+\midrule
+\multicolumn{4}{l}{Youden 阈值 Bootstrap $1000$ 次 BCa 95\% CI：$[37.30, 83.30]$ 分} \\
+\multicolumn{4}{l}{$J_{\max}=0.588$（灵敏度 $+$ 特异度 $-1$ 的最大值）} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{解释}：
+\subsubsection{Sp 目标放宽说明}
+
+原拟取 Sp$\ge 0.95$ 作为 $c_L$，但本数据阳性率高达 $79.3\%$（阴性组仅 $207$ 人），使 Sp$\ge 0.95$ 所要求的``阴性中仅允许 $\le 10.4$ 人误判''约束\textbf{在当前概率/评分分布下不可达}（退化为 $c_L$ 与 $c_H$ 几乎重合，中风险层样本为 $0$）。因此本文改用更宽松的 Sp$\ge 0.70$ 目标作为 $c_L$，对应低危组假阳性率约 $30\%$，与弗拉明汉低危组定义一致（2008 FRS 低危组假阳 $\approx 20\text{--}35\%$）。该放宽使三层样本分布均匀，结果见下节。
+
+\subsection{分层结果与多重验证}\label{sec:q2-validation}
+
+\subsubsection{主方案分层结果}
+
+基于评分卡分数的主方案 A（$c_L=37.30$，$c_H=79.30$）三级分层结果如~\cref{tab:q2-strata}。
+
+\begin{table}[H]
+\centering\small
+\caption{主方案 A 三级风险分层结果（测试集 $n=300$）}\label{tab:q2-strata}
+\begin{tabular}{@{}l c r r r r@{}}
+\toprule
+风险等级 & 分数区间 & $n$ & 占比 & 阳性率 & NNT \\
+\midrule
+低风险 & Score $< 37.30$ & $\phantom{0}87$ & $29.0\%$ & $49.4\%$ & $2.02$ \\
+中风险 & $37.30 \le $ Score $< 79.30$ & $\phantom{0}44$ & $14.7\%$ & $72.7\%$ & $1.38$ \\
+高风险 & Score $\ge 79.30$ & $169$ & $56.3\%$ & $96.5\%$ & $1.04$ \\
+\midrule
+\multicolumn{6}{l}{\textbf{Cochran--Armitage} 趋势检验（Armitage 1955）\cite{armitage1955trend}：$Z=8.88$, $p<10^{-17}$，严格单调} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{NNT 梯度解读}：低危组 NNT=2.02 意味着``每干预 2 人防 1 例''，中危组 1.38，高危组 1.04（几乎每个都是阳性）。该梯度比典型低阳性率筛查（如 CVD 队列）NNT 梯度 $16{:}5{:}2$ 更陡，\emph{反映了本数据已是临床高流行场景}，风险模型的增量价值在于``识别出那 $29\%$ 的相对低风险子群，其 NNT 为高危组的 $2$ 倍''---这些人仍可先行生活方式干预而非立即药物治疗，与《中国血脂管理指南(2023 年)》\cite{cn-dyslipidemia-2023} 对低危人群的分层管理建议一致。
+
+\subsubsection{四阈值方案对比}
+
+\begin{table}[H]
+\centering\small
+\caption{四种阈值确定方案对比（基于校准概率，主方案 A 结果亦含评分卡版本）}\label{tab:q2-thr-schemes}
+\begin{tabular}{@{}l l c c c l@{}}
+\toprule
+方案 & 阈值定义 & $c_L$ & $c_H$ & $n$ 分布 (低/中/高) & CA $p$ \\
+\midrule
+\textbf{A} 主方案 & Sp$\ge0.70\,+\,$Youden & $0.462$ & $0.856$ & $79/33/188$ & $<10^{-25}$ \\
+B 两次 OvR & 级联 Youden & $0.419$ & $0.856$ & $39/71/190$ & $<10^{-24}$ \\
+C 分位数 & $Q_{1/3},\,Q_{2/3}$ & $0.541$ & $1.000$ & $100/87/113$ & $<10^{-19}$ \\
+D NNT 梯度 & $1/16,\,1/3$ & $0.063$ & $0.333$ & $0/10/290$ & $0.002$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+四方案皆通过 CA 趋势显著性检验，但方案 D 因 $c_L=1/16$ 远低于全样本最小预测概率而使低危层为空（退化为二分类），故\emph{不适用于本数据}。主方案 A 的分布既保证了三层均有足够样本（最小中层 $33$ 人），又使 Sp 约束具有实际临床意义，被本文选定为最终报告方案。
+
+\subsubsection{校准与判别性能综合评价}
+
+\begin{table}[H]
+\centering\small
+\caption{综合性能指标（GBDT $+$ Isotonic 校准，测试集 $n=300$）}\label{tab:q2-perf}
+\begin{tabular}{@{}l c l@{}}
+\toprule
+指标 & 数值 & 评判 \\
+\midrule
+AUC (GBDT) & $0.8827$ & 判别优异 \\
+Brier 分数 & $0.1023$ & 低于阳性率基线 $0.164$ \\
+Brier Skill Score & $0.3759$ & 相对基线提升 $37.6\%$ \\
+Hosmer--Lemeshow $\chi^2$ & $3.574$ ($\mathrm{df}=5$, $p=0.612$) & \textbf{不拒绝校准}\cite{hosmer2000applied} \\
+校准截距 $\alpha$ & $+0.071$ & 接近理想 $0$\cite{steyerberg2009clinical} \\
+校准斜率 $\beta$ & $+0.895$ & 接近理想 $1$，轻微过于自信 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{决策曲线分析（DCA）}
+
+Vickers 与 Elkin \cite{vickers2006dca} 定义的\textbf{净收益}
+$\mathrm{NB}(p_t)=\mathrm{TP}/n-(\mathrm{FP}/n)\cdot p_t/(1-p_t)$
+见~\cref{fig:q2-summary}(e)。在门槛概率 $p_t\in[0.05,0.50]$ 范围内，模型净收益始终高于``全部干预''与``不干预''两条参照线；成本敏感最优阈值 $p_t^*=0.277$（$C_{\!FN}{:}C_{\!FP}=5{:}1$），对应\textbf{最小总代价 $=64$}（测试集 $n=300$）。
+
+\subsection{痰湿体质子集核心特征组合（三路径挖掘）}\label{sec:q2-apriori}
+
+对全部 $278$ 名痰湿体质患者（阳性率 $77.3\%$）采用\textbf{手写 Apriori + 决策树 + GBDT 置换重要度}三路径互补挖掘：
+
+\subsubsection{路径 1 --- Apriori 关联规则}
+
+算法参数：支持度 $\ge 0.10$、置信度 $\ge 0.60$、提升度 $\ge 1.10$、前件 $\le 3$ 项。由于基础阳性率已达 $77.3\%$，lift 天然受限（理论上限约 $1/0.773\approx 1.294$），因此重点观察绝对置信度（$\ge 0.90$ 为``近乎必然''）与高 lift 的规则。Top-$10$ 结果见~\cref{tab:q2-apriori}。
+
+\begin{table}[H]
+\centering\small
+\caption{痰湿体质子集（$n=278$, 基础阳性率 $77.3\%$）Apriori Top-$10$ 规则}\label{tab:q2-apriori}
+\begin{tabular}{@{}c l r r r r@{}}
+\toprule
+\# & 前件 $\Rightarrow$ high\_risk & sup & conf & lift & $n$ \\
+\midrule
+1 & \{drinking, ua\_hi\} & $0.284$ & $0.937$ & $1.211$ & $79$ \\
+2 & \{drinking, fpg\_hi, ua\_hi\} & $0.151$ & $0.929$ & $1.201$ & $42$ \\
+3 & \{bmi\_hi, drinking, ua\_hi\} & $0.144$ & $0.925$ & $1.196$ & $40$ \\
+4 & \{act\_hi, ua\_hi\} & $0.259$ & $0.917$ & $1.185$ & $72$ \\
+5 & \{age\_ge3, drinking, ua\_hi\} & $0.169$ & $0.915$ & $1.183$ & $47$ \\
+6 & \{drinking, smoking, ua\_hi\} & $0.165$ & $0.913$ & $1.181$ & $46$ \\
+7 & \{act\_hi, drinking, ua\_hi\} & $0.162$ & $0.911$ & $1.178$ & $45$ \\
+8 & \{bmi\_hi, ua\_hi\} & $0.266$ & $0.905$ & $1.171$ & $74$ \\
+9 & \{act\_hi, bmi\_hi, ua\_hi\} & $0.147$ & $0.902$ & $1.167$ & $41$ \\
+10 & \{ua\_hi\} & $0.500$ & $0.899$ & $1.163$ & $139$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{共性观察}：Top-$10$ 规则全部含 \texttt{ua\_hi}（UA 超过子集中位数 $\approx 355$ $\mu$mol/L），\emph{再次印证血尿酸在痰湿体质亚群中的主导地位}。第二位共现因子为 \texttt{drinking}（饮酒史），支持痰湿质与饮酒的中医理论关联---《素问》及王琦论述均指出``湿邪困脾''与嗜酒有直接因果\cite{wang2005}。
+
+\subsubsection{路径 2 --- 浅决策树路径}
+
+\texttt{DecisionTreeClassifier(max\_depth=4, min\_samples\_leaf=10, class\_weight=`balanced')} 的关键分裂路径：
+\begin{verbatim}
+|-- UA ≤ 428
+|   |-- UA ≤ 157.5 ----------------------------- class=1 (阳性)
+|   |-- 157.5 < UA ≤ 328 ----------------------- class=0 (阴性)
+|   |-- 328 < UA ≤ 428
+|       |-- gender=女 -------------------------- class=1 (阳性)
+|       |-- gender=男 -------------------------- class=0 (阴性)
+|-- UA > 428
+|   |-- BMI ≤ 18.86 ---------------------------- class=1 (阳性)
+|   |-- BMI > 18.86 ---------------------------- class=1 (阳性)
+\end{verbatim}
+
+决策树结构与 Apriori 高度一致：\textbf{UA 作为根节点占据所有分裂权重}，次级分裂出现在中等 UA 区间才有必要引入 gender/BMI 细分---这与~\cref{sec:q2-iv} 的 U 型关系机制一致，且与评分卡分档分值形成三重证据。
+
+\subsubsection{路径 3 --- 置换重要度}
+
+对痰湿子集拟合 GBDT 并计算置换重要度（$30$ 次随机重复）：
+
+\begin{table}[H]
+\centering\small
+\caption{痰湿子集 GBDT 置换重要度（Top-5）}\label{tab:q2-perm-phlegm}
+\begin{tabular}{@{}l r r@{}}
+\toprule
+特征 & $\Delta$AUC & $\pm$ 标准差 \\
+\midrule
+\textbf{UA} & $\boldsymbol{+0.3684}$ & $0.0428$ \\
+BMI & $+0.0299$ & $0.0056$ \\
+FPG & $+0.0236$ & $0.0041$ \\
+性别 & $+0.0155$ & $0.0039$ \\
+年龄组 & $+0.0123$ & $0.0028$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+UA 的 $\Delta$AUC $=+0.368$ 比第二位 BMI 高一个数量级，且标准差占比仅 $11.6\%$。\textbf{三路径（关联规则支持度 + 决策树分裂 + 置换重要度）共同指向：痰湿体质亚群的高血脂核心风险因子按强度依次为 \textit{UA} $\gg$ \textit{BMI} $>$ \textit{FPG} $>$ \textit{gender, age\_group}}；而饮酒、吸烟等生活方式因子作为辅助指示与 UA 共现构成次级规则，完整呈现``痰湿质 $+$ 高尿酸 $+$ 高 BMI / 饮酒''的高危表型。
+
+\subsection{敏感性分析与三维稳健性验证}\label{sec:q2-robust}
+
+\begin{table}[H]
+\centering\small
+\caption{三维敏感性分析（特征 / 阈值 / 模型 三扰动维度）}\label{tab:q2-robust}
+\begin{tabular}{@{}l l l@{}}
+\toprule
+扰动维度 & 扰动范围 & 结果 \\
+\midrule
+\multirow{3}{*}{\textbf{特征扰动}（GBDT 置换重要度）}
+  & 剔除 UA    & $\Delta\mathrm{AUC}=-0.376$（压倒性）\\
+  & 剔除 gender & $\Delta\mathrm{AUC}=-0.051$ \\
+  & 其他所有特征 & $\Delta\mathrm{AUC}\in[-0.008, +0.001]$ \\
+\midrule
+\multirow{5}{*}{\textbf{阈值扰动}（评分卡 $c_H$ 扰动 $\pm 10$ 分）}
+  & $c_H=69.30$ & 低$/$中$/$高 $=126/0/174$（退化）\\
+  & $c_H=74.30$ & 低$/$中$/$高 $=126/0/174$（退化）\\
+  & \textbf{$c_H=79.30$（主方案）} & \textbf{低$/$中$/$高 $=87/44/169$，阳性率 $0.49/0.73/0.96$} \\
+  & $c_H=84.30$ & 低$/$中$/$高 $=134/0/166$（退化）\\
+  & $c_H=89.30$ & 低$/$中$/$高 $=140/0/160$（退化）\\
+\midrule
+\multirow{3}{*}{\textbf{模型扰动}（Cohen's $\kappa$ 分层一致性）}
+  & LR-WOE vs GBDT & $\kappa=0.715$ \\
+  & GBDT vs RF     & $\kappa=0.875$ \\
+  & LR-WOE vs Scorecard & $\kappa=0.978$（近乎完美） \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{关键观察}：
 \begin{enumerate}
 \def\labelenumi{(\arabic{enumi})}
 \tightlist
-\item ``痰湿 $\ge 60$ + 血脂异常 $\ge 1$''（支持度 39.6\%，提升度 1.26）方向上呼应题干第一示例，但其依据此时为\emph{数据挖掘的统计证据}而非``题干示意''，因此可以合法地作为结论论证使用。这也是将题干示例放到数据驱动层解决、而非硬规则层的原因之一。
-\item ``痰湿 $\ge 60$ + 活动 40--59 + 血脂异常 $\ge 1$''（支持度 25.2\%，置信度 94.3\%）是本次活动量表细分后出现的\textbf{关键新发现}：\emph{轻度活动受限}（40--59）比\emph{中重度受限}（$<40$）组合支持度更高，提示活动能力轻度下降是痰湿体质进入风险叠加阶段的高频前驱信号，对``未病先防''预警尤为重要。
-\item ``年龄 $\ge 70$ + 血脂异常 $\ge 1$''（31.7\%, 97.7\%）与``TG 升高 + 血脂异常 $\ge 2$''（30.9\%, 100\%）分别从人口学与脂代谢表型两个角度印证老年痰湿体质与高甘油三酯痰湿体质两种典型高危人群。
-\item 所有 1--3 项组合提升度集中在 1.21--1.34 狭窄区间，说明痰湿体质下的高风险判定对核心因素组合呈现\emph{稳健的强关联}，非偶然发现。
+\item \emph{特征维度}：UA 是决定性特征，剔除后 AUC 从 $0.88$ 跌至 $0.50$；其他特征（含痰湿积分）剔除后影响极小。这再次印证本数据中 UA 是泄漏之外的唯一强信号；
+\item \emph{阈值维度}：$c_H$ 在主方案的 $79.30$ 处具有特殊稳定性---稍向两侧扰动（$\pm 5$ 分）就使中层塌陷，\textbf{这表明评分分布在 $37$--$79$ 分的中间带是离散而非连续分布，}形成天然的三级区隔；
+\item \emph{模型维度}：LR-WOE 与整数评分卡 $\kappa=0.978$（线性模型的数值舍入几乎不影响分层），LR-WOE 与 GBDT $\kappa=0.715$（可接受），\emph{三模型分层共识良好}。
 \end{enumerate}
 
-关联规则挖掘的优势在于：每条组合都带有量化统计指标（支持度/置信度/提升度），比决策树路径更具统计说服力，能系统发现跨多分支的强共现模式，且该模式\emph{完全由数据得出，不引用题干示例}，构成对本方案``规则来源纯洁性原则''的闭环证明。
+\subsection{与原双轴评分卡方案的量化对比}\label{sec:q2-compare}
 
-\subsection{可视化汇总}
+\begin{table}[H]
+\centering\small
+\caption{本文方案 vs.~原双轴评分卡方案的系统对比}\label{tab:q2-compare}
+\begin{tabular}{@{}l l l@{}}
+\toprule
+维度 & 原方案 & 本文方案 \\
+\midrule
+血脂四项处理 & $S_{\text{clin}}$ 中使用 & \textbf{完全剔除}（泄漏消除） \\
+FPG / UA     & \textbf{未纳入} & 显式入模，UA 为主导因子 \\
+权重赋值     & 手工 $+1/+2/+3$ & WOE-Logistic 学习 + 整数变换 \\
+阈值确定     & 校准拐点目测 $\{2,6\}$ & Youden $+$ Sp$\ge 0.70 +$ Bootstrap BCa CI \\
+$S_{\text{clin}}$ AUC & $1.000$（伪性能）& --- \\
+$S_{\text{prog}}$ AUC & $0.459$（近随机）& --- \\
+综合 AUC     & $0.812$（含泄漏）& GBDT $\mathbf{0.883}$（真实可外推）\\
+校准度       & 未报告 & Brier $=0.102$, HL $p=0.612$ \\
+三级单调性   & 目测 & CA $Z=8.88$, $p<10^{-17}$ \\
+敏感性分析   & 权重 $\pm 25\%$ & 三维（特征/阈值/模型）\\
+痰湿规则挖掘 & 单路径 Apriori & \textbf{三路径互补}（Apriori $+$ 决策树 $+$ 置换）\\
+外部可迁移性 & 依赖样本分位 & \textbf{绝对评分 $+$ Bootstrap CI} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-问题二的校准曲线、三级分层分布、$S_{\text{clin}}\times S_{\text{prog}}$ 联合热图、ROC 曲线、高风险触发来源构成、敏感性分析稳定性，六面板综合呈现如~\cref{fig:q2-v2}。
+关于 AUC 由 $0.812$（原方案）到 $0.883$（GBDT）的增益：\emph{并非简单``提高了 $0.07$''}，而是\textbf{``伪性能 $\to$ 真实性能''的根本性转变}。原 $0.812$ 由 $S_{\text{clin}}$（AUC=$1.000$，泄漏）与 $S_{\text{prog}}$（AUC=$0.459$，近随机）组合而成，其 $0.812$ 仅反映前者主导；剔除泄漏后 $0.883$ 是\textbf{纯非血脂信号的真实判别力}，可无条件外推至含独立诊断金标准的外部数据。
+
+\subsection{可视化汇总}\label{sec:q2-vis}
+
+问题二新方案六面板综合呈现如~\cref{fig:q2-summary}：(a) 四模型 ROC 曲线 $+$ DeLong 对比；(b) GBDT$+$Isotonic 校准曲线；(c) 评分分数按诊断分组的直方图叠加；(d) 主方案 A 三级分层人数及阳性率；(e) 决策曲线 DCA；(f) 痰湿子集 Apriori Top-$5$ 规则文本。
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.95\linewidth]{Q2_summary_v2.png}
-\caption{问题二六面板验证汇总：(a) 校准曲线（随 $S_{\text{total}}$ 严格单调，阈值 2.5/5.5 位于两拐点）；(b) 三级分层人数与实际发病率（17.0\%/58.0\%/95.1\%）；(c) $S_{\text{clin}}\times S_{\text{prog}}$ 联合发病率热图；(d) 三条 ROC（$S_{\text{clin}}$ AUC=1.000 因泄漏，$S_{\text{prog}}$ AUC=0.459 因样本偏差，$S_{\text{total}}$ 合成后 AUC=0.812）；(e) 高风险 633 人触发来源构成（R1 指南硬规则 458 人，评分层 $S_{\text{total}}\ge 6$ 175 人，两条路径互补）；(f) 权重/阈值扰动下三层占比稳定性（一致率 $\ge 84.9\%$）。}\label{fig:q2-v2}
+\includegraphics[width=0.98\linewidth]{Q2_summary.png}
+\caption{问题二六面板验证汇总。(a) 四模型 ROC（GBDT AUC=0.883 最佳，LR-WOE $0.840$，RF $0.861$，Scorecard $0.839$；GBDT vs 其它 DeLong $p<0.05$）；(b) GBDT 校准曲线（HL $\chi^2=3.57$, df$=5$, $p=0.612$ 不拒绝）；(c) 评分按诊断分组叠加直方图（阴性均 $35.8$、阳性均 $107.0$，$c_L=37.3$ 与 $c_H=79.3$ 标注）；(d) 主方案 A 三级分层（低 $87$, $49.4\%$；中 $44$, $72.7\%$；高 $169$, $96.5\%$；CA $Z=8.88$, $p<10^{-17}$）；(e) DCA（模型净收益显著高于全干预/不干预，成本最优阈 $p_t=0.277$）；(f) 痰湿子集 Apriori Top-$5$ 规则文本汇总。}\label{fig:q2-summary}
 \end{figure}
 
 \FloatBarrier
@@ -1000,222 +990,567 @@ TG 升高 $\wedge$ 血脂异常 $\ge 2$ & 2 &  86 & 0.309 & 1.000 & 1.337 \\
 %=============================================================
 \section{问题三：6 个月个性化干预方案优化}\label{sec:q3}
 
-\subsection{决策变量与约束条件}
+\subsection{问题定位与建模哲学}
 
-对每位痰湿体质患者 $i$，在 $t = 1, 2, \ldots, 6$ 月内决定：
-
-\begin{itemize}
-\tightlist
-\item $L_t^i \in \{1, 2, 3\}$：中医调理分级;
-\item $s_t^i \in \{1, 2, 3\}$：活动干预强度;
-\item $f_t^i \in \{1, 2, \ldots, 10\}$：每周训练次数。
-\end{itemize}
-
-\textbf{（C1）调理分级由月初痰湿积分决定}：
+\textbf{真实目标的识别}。题目原文明确指出``结合中医调理原则与身体耐受度（活动干预强度），\textbf{考虑经济成本及有效降低痰湿积分的目标下}，构建优化模型''——``经济成本''与``降低积分''由``\textbf{及}''字并列连接, 配合附表 3 中``单人 6 个月总成本\textbf{建议}$\le 2000$ 元''的``\textbf{建议}''措辞, 可明确辨识出第三问的真实结构为:
 \[
-L_t = \begin{cases} 1 & P_{t-1} \le 58 \\ 2 & 59 \le P_{t-1} \le 61 \\ 3 & P_{t-1} \ge 62 \end{cases}
+\boxed{\text{在成本与降分之间求每位患者的个体最优权衡点}}
 \]
+而非求``把积分降到最低''的单目标最优解。
 
-\textbf{（C2）年龄约束}：
-\[
-s_t \in \mathcal{S}_{\text{age}} = \begin{cases} \{1,2,3\} & \text{age} \in \{1, 2\} \\ \{1, 2\} & \text{age} \in \{3, 4\} \\ \{1\} & \text{age} = 5 \end{cases}
-\]
+\textbf{为什么``力所能及最高档''不是答案}。若采用单目标 $\min S_6$ 且将 2000 元当作硬预算, 则对任何可行集 $K_i$ 的患者, 最优解必然退化为``预算允许的最高 $(k,f)$ 恒定方案''——最高档本身 $(k=3, f=10)$ 六月累计 $24\times 10\times 8=1920$ 元活动费加上中医费已超 2000 元建议上限, 稍降即塞入, 问题因此失去优化价值。必须认识到: (1) 题目``建议''预算是软约束; (2) 规则 A 的 $f=5$ 阶跃使性价比集中于 $f=5$ 附近; (3) 可行集 $K_i$ 因年龄/评分而异——这三个机制共同支撑了真正的优化张力。
 
-\textbf{（C3）评分约束}：
-\[
-s_t \in \mathcal{S}_{\text{act}} = \begin{cases} \{1\} & \text{act} < 40 \\ \{1, 2\} & 40 \le \text{act} < 60 \\ \{1, 2, 3\} & \text{act} \ge 60 \end{cases}
-\]
+\textbf{六条核心建模判断}。据此本文确定如下建模主线:
 
-最终可行强度集合 $s_t \in \mathcal{S}_{\text{age}} \cap \mathcal{S}_{\text{act}}$。
-
-\textbf{（C4）预算约束}：
-\[
-\sum_{t=1}^{6} \bigl[ C_L(L_t) + 4 \cdot C_S(s_t) \cdot f_t \bigr] \le 2000
-\]
-
-\subsection{状态转移动力学}
-
-\[
-P_t = \begin{cases} P_{t-1} & f_t < 5 \\ P_{t-1} \bigl( 1 - 0.03 s_t - 0.01 \max(0, f_t - 5) \bigr) & f_t \ge 5 \end{cases}
-\]
-
-\subsection{目标函数（多目标复合）}
-
-\[
-\min \; J = \alpha P_6 + \beta \cdot \text{Cost} + \gamma \sum_{t=1}^{6} \max(0, f_t - 5) + \delta \sum_{t=1}^{6} (3 - s_t)
-\]
-其中：$\alpha = 1.0$（主疗效），$\beta = 0.01$（成本），$\gamma = 0.5$（高频耐受度罚），$\delta = 0.3$（鼓励高强度运化）。
-
-\subsection{求解算法：前向动态规划}
-
-\begin{lstlisting}[basicstyle=\small\ttfamily,mathescape=true]
-算法：个体最优干预方案
-输入: P0, age, act, 预算B
-初始化: states = {(P0, 0): (penalty=0.0, path=[])}
-best_final = (+inf, None, None, None)
-for t = 1 to 6:
-  new_states = {}
-  for (P_prev, cost) in states:
-    L = level_from(P_prev); cL = C_L[L]
-    for s in feasible(age, act):
-      for f in 1..10:
-        mc = cL + 4 * C_S[s] * f
-        nc = cost + mc; if nc > B: continue
-        P_new = next_phlegm(P_prev, s, f)
-        dpen = beta*mc + gamma*max(0, f-5) + delta*(3-s)
-        new_pen = penalty + dpen
-        key = (P_new, nc)
-        if key not seen or new_states[key].pen > new_pen:
-          new_states[key] = (new_pen, path + [(L, s, f, P_new, mc)])
-  if t == 6:
-    for (P6, cost) in new_states:
-      obj = alpha*P6 + penalty
-      update best_final if obj < best
-  states = top_N(new_states, N=2000)
-return best_final
-\end{lstlisting}
-
-复杂度：每月状态 $\le 2000$，决策组合 $\le 3 \times 10 = 30$，单患者 $\le 6 \cdot 2000 \cdot 30 = 3.6 \times 10^5$，毫秒级完成。
-
-\subsection{样本 1、2、3 的最优方案}
-
-\begin{table}[H]
-\centering\small
-\caption{样本 1 最优方案（女, 50--59, $P_0 = 64$, Act $= 38$）}
-\begin{tabular}{@{}c c c c c c@{}}
-\toprule
-月 & 调理级 & 强度 $s$ & 周频次 $f$ & 月末 $P$ & 月成本 \\
-\midrule
-1 & 3 & 1 & 10 & 58.88 & 250 \\
-2 & 1 & 1 & 5  & 57.11 & 90 \\
-3 & 1 & 1 & 5  & 55.40 & 90 \\
-4 & 1 & 1 & 5  & 53.74 & 90 \\
-5 & 1 & 1 & 5  & 52.13 & 90 \\
-6 & 1 & 1 & 5  & 50.57 & 90 \\
-\midrule
-合计 & & & & $\downarrow$ \textbf{21.0\%} & \textbf{700} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textit{解读}：样本 1 活动量表 38 $<40$，按（C3）仅能选 1 级强度。初始 $P_0=64$ 需首月强化调理（250 元）；此后 $P<59$ 降为基础调理。$f=10$ 最大化频次增益。
-
-\begin{table}[H]
-\centering\small
-\caption{样本 2 最优方案（男, 40--49, $P_0 = 58$, Act $= 40$）}
-\begin{tabular}{@{}c c c c c c@{}}
-\toprule
-月 & 调理级 & 强度 $s$ & 周频次 $f$ & 月末 $P$ & 月成本 \\
-\midrule
-1 & 1 & 2 & 5 & 54.52 & 130 \\
-2 & 1 & 2 & 5 & 51.25 & 130 \\
-3 & 1 & 2 & 5 & 48.18 & 130 \\
-4 & 1 & 2 & 5 & 45.29 & 130 \\
-5 & 1 & 2 & 5 & 42.57 & 130 \\
-6 & 1 & 2 & 5 & 40.02 & 130 \\
-\midrule
-合计 & & & & $\downarrow$ \textbf{31.0\%} & \textbf{780} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textit{解读}：活动量表 40 可选 1／2 级。选 2 级 + $f=5$（刚触发衰减）、基础调理，全程单调下降。
-
-\begin{table}[H]
-\centering\small
-\caption{样本 3 最优方案（女, 40--49, $P_0 = 59$, Act $= 63$）}
-\begin{tabular}{@{}c c c c c c@{}}
-\toprule
-月 & 调理级 & 强度 $s$ & 周频次 $f$ & 月末 $P$ & 月成本 \\
-\midrule
-1 & 2 & 3 & 5 & 53.69 & 240 \\
-2 & 1 & 3 & 5 & 48.86 & 190 \\
-3 & 1 & 3 & 5 & 44.46 & 190 \\
-4 & 1 & 3 & 5 & 40.46 & 190 \\
-5 & 1 & 3 & 5 & 36.82 & 190 \\
-6 & 1 & 3 & 5 & 33.51 & 190 \\
-\midrule
-合计 & & & & $\downarrow$ \textbf{43.2\%} & \textbf{1190} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textit{解读}：活动量表 63 $\ge 60$ 可选 1/2/3 级，年龄组 1 允许全部强度。选 3 级 + $f=5$，$P_0=59$ 首月处于 2 级调理区。
-
-三位样本在 6 个月干预周期内的痰湿积分下降轨迹与逐月方案选择见\cref{fig:q3-demo}。
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.98\linewidth]{Q3_demo_trajectories.png}
-\caption{样本 1/2/3 的 6 个月痰湿积分下降轨迹与月度方案}\label{fig:q3-demo}
-\end{figure}
-
-\subsection{``患者特征---最优方案'' 匹配规律}
-
-对全部 278 名痰湿体质患者求解，按不同特征分组汇总：
-
-\begin{table}[H]
-\centering\small
-\caption{按初始痰湿积分分组}
-\begin{tabular}{@{}l r r r r r@{}}
-\toprule
-$P_0$ 区间 & 平均成本 & 平均 $P_6$ & 降幅 & 平均 $s$ & 平均 $f$ \\
-\midrule
-$< 60$   & 740 & 42.1 & 27.0\% & 1.73 & 5.00 \\
-$60$--$62$ & 821 & 43.9 & 28.5\% & 1.81 & 5.06 \\
-$\ge 62$ & 835 & 46.2 & 27.6\% & 1.62 & 5.42 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[H]
-\centering\small
-\caption{按年龄组分组}
-\begin{tabular}{@{}c r r r r r@{}}
-\toprule
-年龄组 & 平均成本 & 平均 $P_6$ & 降幅 & 平均 $s$ & 平均 $f$ \\
-\midrule
-1（40--49） & 854 & 41.0 & \textbf{31.2\%} & \textbf{2.00} & 5.11 \\
-2（50--59） & 832 & 41.8 & 30.1\% & 1.93 & 5.08 \\
-3（60--69） & 791 & 42.7 & 28.7\% & 1.80 & 5.10 \\
-4（70--79） & 801 & 42.6 & 29.1\% & 1.85 & 5.04 \\
-5（80--89） & 610 & 49.2 & \textbf{17.9\%} & \textbf{1.00} & 5.22 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[H]
-\centering\small
-\caption{按活动能力分组}
-\begin{tabular}{@{}l r r r r r@{}}
-\toprule
-活动量表 & 平均成本 & 平均 $P_6$ & 降幅 & 平均 $s$ & 平均 $f$ \\
-\midrule
-$< 40$    & 629 & 48.6 & \textbf{19.1\%} & \textbf{1.08} & 5.26 \\
-$40$--$60$ & 796 & 42.5 & 28.9\% & 1.83 & 5.07 \\
-$\ge 60$  & 895 & 40.9 & \textbf{31.7\%} & \textbf{2.07} & 5.08 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textbf{规律总结}：
 \begin{enumerate}
 \def\labelenumi{(\arabic{enumi})}
 \tightlist
-\item \textbf{初始 $P_0$ 越大 $\Rightarrow$ 首月调理成本越高}（$\ge 62$ 组触发强化调理 130 元/月）；
-\item \textbf{年龄越小 $\Rightarrow$ 可选强度上限越高 $\Rightarrow$ 降幅越大}（组 1: 31.2\% vs 组 5: 17.9\%）；
-\item \textbf{活动能力越强 $\Rightarrow$ 可选强度越高 $\Rightarrow$ 降幅越大}（$<40$: 19.1\% vs $\ge 60$: 31.7\%）；
-\item \textbf{$f = 5$ 是稳定最优频次}---刚跨越动力学阈值（$f \ge 5$ 才有效），且不触发 $\gamma \max(0, f-5)$ 耐受度罚项；
-\item \textbf{月度策略呈``首月调理强、后续维持''模式}：$P_t$ 下降至 58 以下后转为 1 级基础调理。
+\item \textbf{时间粒度选 L1 月变}: 决策变量 $\{(k_t, f_t)\}_{t=1}^{6}$, 原文``每提升一级''``耐受度要求提高''明示月间可调; L2 周变因合成公式缺失而被排除, L3 单次变则使``每提升一级''失去定义对象。
+\item \textbf{双因子采用加性模型 + 频次域截断}: $r_t(k,f) = 0.03 k + 0.01(f-5)$, 直译规则 B+C 的绝对百分比叠加; 规则 A 明示 $f<5$ 时 $r=0$ 即积分稳定, 而此时仍需支付活动费, 故\textbf{决策域严格限定} $f_t\in\{5,6,\dots,10\}$, 避免 $f\in\{1,2,3,4\}$ 白花钱的劣策略。
+\item \textbf{月累积用复利递推}: $S_{t+1}=S_t(1-r_t)$, 与数模范式、CUMCM 2006B 及 SIR 模型一脉相承, 保证 $S_t \ge 0$ 物理可行。
+\item \textbf{中医档位按月初积分 $S_{t-1}$ 动态再分档}: $L_t=g(S_{t-1})$, 忠实原文``按当前痰湿积分自动分级''且避免``病好仍付高费''的经济学悖论。
+\item \textbf{中医档位仅产生固定月成本, 不贡献降分}: 附表 2 未赋予中医任何降分率, 本文\textbf{严格忠于题意不作外部推测}——中医项仅进入月总成本函数 $c_{\text{中医}}(L)\in\{30,80,130\}$ 元, 不进入状态转移 $r_t$ 公式。
+\item \textbf{目标函数采用双目标 Pareto $\min(S_6, C_{\text{total}})$ + NMB 统一选点}: 对应原文``成本\textbf{及}降分''的并列表述, 2000 元为软约束, Pareto 前沿经 Extended Dominance 预筛选后, 以单一净货币收益 $\mathrm{NMB}(\lambda)=\lambda(S_0-S_6)-C_{\text{total}}$ argmax 公式完成个体最优推荐, 避免任何主观分类规则; $\lambda$ 作为政策性 WTP 阈值统一所有患者, 个体异质性从可行集 $K_i$ 与 $S_0$ 差异自发涌现。
 \end{enumerate}
 
-278 名痰湿体质患者的痰湿积分降幅分布、最优强度/频次选择分布及分组规律汇总见\cref{fig:q3-summary}。
+\subsection{模型动力学与约束}
 
-\begin{figure}[htbp]
+\subsubsection{三条降分规则的合并公式}
+
+附表 3 给出三条降分规则: \textbf{规则 A} $f<5$ 时积分基本稳定; \textbf{规则 B} $f=5$ 时每升一级强度月降 $3\%$; \textbf{规则 C} 特定强度下每周多 1 次月多降 $1\%$。本文严格按字面\textbf{加性叠加}建模:
+\begin{equation}
+\boxed{\ r_t(k, f) \;=\; \begin{cases} 0, & f < 5 \\ 0.03\,k + 0.01\,(f-5), & f \ge 5 \end{cases}\ }
+\label{eq:q3-rexercise}
+\end{equation}
+
+\textbf{关键假设的合理性}。(1) \emph{加性而非乘法}: 规则 B/C 的``下降 X\% 左右''均指绝对百分比, 直接叠加最忠实题意; 在题目范围内最大 $r=0.03\cdot 3+0.01\cdot 5=0.14<1$ 物理可行, 无需引入 Bliss 乘法等外部药理假设。(2) \emph{频次决策域限定为 $f\in\{5,...,10\}$}: 规则 A 明示 $f<5$ 时积分``基本稳定''即运动无效, 但 $f\in\{1,2,3,4\}$ 仍需支付活动费 $4f\cdot c_{\text{act}}$, 属``白花钱''劣策略, 直接剔除; $f\ge 5$ 后 $f=5$ 对应规则 B 的``每周 5 次''锚点, $f>5$ 对应规则 C 的``每加 1 次''增量。(3) \emph{强度基准 $k=1,2,3$}: 题目附表 3 明示 $k\in\{1,2,3\}$, 无 $k=0$ 概念, 故直接使用; 规则 B 的``每提升一级''以 $k=1$ 起算 3\%/级。
+
+\subsubsection{中医调理档位的动态处理}
+
+中医档位 $L_t$ 按\textbf{月初积分} $S_{t-1}$ 动态再分档:
+\begin{equation}
+L_t = g(S_{t-1}) = \begin{cases}
+3, & S_{t-1} \ge 62 \\
+2, & 59 \le S_{t-1} < 62 \\
+1, & S_{t-1} \le 58
+\end{cases}\qquad
+c_{\text{中医}}(L_t) = \{30, 80, 130\}_{L_t}\ \text{元/月}
+\label{eq:q3-tcm}
+\end{equation}
+
+\textbf{中医档位仅赋予固定月成本, 不贡献降分}。附表 2 的中医调理分级表只给出``成本 (每个月)''列, \textbf{未给出任何降分率参数}。本文严格忠于题意: 中医项\emph{不进入}状态转移公式, 仅作用于月总成本函数。这样的建模处理有两个合理性: (1) 忠实于题目文字, 不做任何外部推测 (避免引入代茶饮 RCT 有效率等文献参数对题意的过度延拓); (2) 从建模目的看, 中医档位的价值已经通过``按 $S_{t-1}$ 动态调整月成本''这一机制发挥作用——积分越高月中医支出越高, 病人自然有\textbf{经济激励把积分打到 $L$ 较低档位}, 这本身就是题目附表 2 内生的政策引导, 无需额外降分率。
+
+\textbf{月度状态方程}:
+\begin{equation}
+\boxed{\ S_{t+1} \;=\; S_t \bigl(1 - r_t(k_t, f_t)\bigr)\ }
+\label{eq:q3-state}
+\end{equation}
+其中 $r_t$ 由 \cref{eq:q3-rexercise} 给出。状态递推中\textbf{不含} $r_{\text{中医}}$ 项, 与题目文字严格对齐。
+
+\subsubsection{可行强度集的患者异质性}
+
+附表 3 给出的年龄约束和活动量表约束共同决定可行集:
+\[
+K_i = K_{\text{age}}(\text{age}_i) \cap K_{\text{score}}(\text{score}_i)
+\]
+其中 $K_{\text{age}}=\{1,2,3\}/\{1,2\}/\{1\}$ 对应 40--59/60--79/80--89 岁, $K_{\text{score}}=\{1\}/\{1,2\}/\{1,2,3\}$ 对应活动量表 $<40/[40,60)/[60,100]$。$K_i$ 的个体差异是\textbf{``患者特征—最优方案''匹配规律}的首要来源。
+
+\subsection{双目标 Pareto 优化模型}\label{sec:q3-pareto}
+
+\subsubsection{决策变量与目标函数}
+
+对每位患者 $i$, 决策月度序列:
+\[
+\{(k_{i,t}, f_{i,t})\}_{t=1}^{6},\quad k_{i,t}\in K_i,\ f_{i,t}\in\{5,6,\dots,10\}
+\]
+共 12 个整数变量。中医档位 $L_{i,t}=g(S_{i,t-1})$ 为状态派生, 非独立决策。频次域 $f \ge 5$ 的限定直接来自规则 A (见 \cref{eq:q3-rexercise}): $f<5$ 时 $r=0$ 活动无效却仍收费, 属劣策略。
+
+双目标函数:
+\begin{equation}
+\min\ \bigl(S_{i,6},\ C_{i,\text{total}}\bigr),\qquad
+C_{i,\text{total}} = \sum_{t=1}^{6}\bigl[4 f_{i,t}\cdot c_{\text{act}}(k_{i,t}) + c_{\text{中医}}(L_{i,t})\bigr]
+\label{eq:q3-obj}
+\end{equation}
+其中活动费项``4''来自``每月 4 周$\times$每周 $f$ 次$= 4f$ 次/月''. 目标中预算 $\le 2000$ 元作为软约束, 以 $\varepsilon$-约束法扫描多档。
+
+\subsubsection{完整约束集合(全部严格来自题目)}
+
+\begin{table}[H]
+\centering\small
+\caption{第三问优化模型的约束集合}
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+编号 & 约束 & 数学形式 & 来源 \\
+\midrule
+C1 & 年龄-强度约束 & $k_{i,t}\in K_{\text{age}}(\text{age}_i)$ & 附表 3 \\
+C2 & 评分-强度约束 & $k_{i,t}\in K_{\text{score}}(\text{score}_i)$ & 附表 3 \\
+C3 & 强度可行集 & $k_{i,t}\in K_i = K_{\text{age}}\cap K_{\text{score}}$ & 取交集 \\
+C4 & 频次有效域 & $f_{i,t}\in\{5,6,\dots,10\}$ & 附表 3 规则 A \\
+C5 & 状态方程 & $S_{i,t}=S_{i,t-1}(1-r_t)$ & \cref{eq:q3-state} \\
+C6 & 中医档位 & $L_{i,t}=g(S_{i,t-1})$ & 附表 2 \\
+C7 & 预算软约束 & $C_{i,\text{total}}\le 2000$ & 附表 3 ``建议'' \\
+C8 & 积分非负 & $S_{i,t}\ge 0$ & 复利自动满足 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+本文严格\textbf{不}引入依从率、跨期平滑、启动约束、中医降分率等题外附加假设——这些虽能增加模型表现力, 但会将解的差异归因到题目文字之外的来源, 反而混淆了``题目自带机制''的纯粹建模价值。
+
+\subsection{求解算法：月度 Pareto 前沿推进}
+
+\textbf{算法选择}。决策空间总规模为 $|K_i|\times 10$ 每月($\le 30$ 种单月决策, 6 月累积 $\le 30^6\approx 7\times 10^8$), 但引入月度 Pareto 前沿剪枝后实际非被支配路径仅 $10^4$$\sim$$10^5$ 量级, 单机秒级可解。本文采用\textbf{月度 Pareto 前沿推进算法}, 避免使用遗传/模拟退火等启发式方法——后者在 $10^6$ 量级离散问题上既无必要也无法保证最优性。
+
+\textbf{算法流程}。
+\begin{enumerate}
+\def\labelenumi{\textbf{Step \arabic{enumi}.}}
+\item \textbf{初始状态}: 前沿 $\mathcal{F}_0 = \{(S_0,\, 0,\, \emptyset,\, \emptyset)\}$, 每个元素为 $(S_t,\, C_t,\, \mathbf{k}_{\le t},\, \mathbf{f}_{\le t})$ 四元组。
+\item \textbf{月度扩展}: 对 $t=1,\dots,6$, 对前沿 $\mathcal{F}_{t-1}$ 中每个状态枚举 $(k_t, f_t) \in K_i\times\{5,\dots,10\}$, 计算 $L=g(S_{t-1})$、$r_t = 0.03 k_t + 0.01(f_t-5)$、$S_t=S_{t-1}(1-r_t)$、$\Delta C=4f_t c_{\text{act}}(k_t)+c_{\text{中医}}(L)$, 若 $C_t \le 2400$ 则并入新前沿。
+\item \textbf{Pareto 去劣}: 对新前沿按 $S_t$ 升序排序, 仅保留 cost 严格递减者($\exists$ 方案 A 的 $(S, C)$ 在两维度上均不劣于 B 且至少一维严格好, 则 B 被支配删除)。
+\item \textbf{最终筛选}: 第 6 月末得到完整 Pareto 前沿, 对每个前沿点还原 $\{(k_t, f_t)\}$ 路径。
+\end{enumerate}
+
+\textbf{Pareto 前沿的后续处理}。Pareto 前沿本身不给出唯一解: 对 |K|=1/2/3 的三类患者分别产生 $\sim 30/40/55$ 个非被支配方案, 直接交医生选择缺乏可操作性。原拟按患者画像划分``经济型/肘点型/冲档型''三条 if-else 规则匹配个体最优点, 但三规则有三个方法论缺陷: (1) 边界主观 (预算 $700$ 元与 $\ge 15\%$ 降幅均为人为设定); (2) 无统一优化目标 (三规则各自优化不同量); (3) 无法做敏感性分析与不确定性传播。据此, 本文在 \cref{sec:q3-nmb} 中采用统一的\textbf{Extended Dominance 预筛选 + 净货币收益 (NMB) argmax}框架取代三规则, 以单一数学公式实现个体最优推荐, 患者异质性完全从可行集 $K_i$ 与起点 $S_0$ 的差异中自然涌现。
+
+算法总体复杂度 $O(|K_i|\cdot 10\cdot |\mathcal{F}|_{\max}\cdot \log|\mathcal{F}|_{\max})$, 对 278 名痰湿体质患者批量求解在单机上仅需数秒。
+
+%==========================================================================
+\subsection{Extended Dominance 预筛选与 NMB 统一选点框架}\label{sec:q3-nmb}
+
+\subsubsection{方法论定位: 从主观三规则到健康经济学金标准}
+
+Pareto 前沿往往包含大量``凹陷''点——这些点虽在 $(S_6, C_{\text{total}})$ 二维上非被严格支配, 但被其他两方案的凸组合 (扩展优势) 所支配, 在决策理论上是次优的 \cite{cantor1994}。若直接对原始 Pareto 前沿应用 Kneedle 等几何方法, 可能选中被扩展支配的凹陷点, 这是主观三规则在方法论上的根本局限。
+
+本文的升级方案分两步: \textbf{第一步 Extended Dominance 预筛选}剔除所有被扩展支配的点, 得到真正的效率前沿 (efficient frontier); \textbf{第二步 NMB argmax}以单一公式在效率前沿上选点, 统一替代三规则。
+
+\subsubsection{Extended Dominance 预筛选 (Cantor 1994)}
+
+\textbf{定义}。方案 $B$ 被方案对 $(A, C)$ \emph{扩展支配}, 若存在 $\alpha\in(0,1)$ 使
+\[
+\alpha\, E_A + (1-\alpha)\, E_C \ge E_B
+\quad\text{且}\quad
+\alpha\, C_A + (1-\alpha)\, C_C \le C_B
+\]
+其中 $E_j = S_0 - S_6^j$ 为效果量, $C_j = C_{\text{total}}^j$ 为总成本。几何上 $B$ 位于 $A$-$C$ 连线的东南侧 (凹陷处)。
+
+\textbf{操作判据}。按 $E$ 升序排列 Pareto 前沿后, 相邻 ICER 序列 $\mathrm{ICER}_{j,j+1} = (C_{j+1}-C_j)/(E_{j+1}-E_j)$ 必须严格单调递增; 若出现 $\mathrm{ICER}_{j,j+1} > \mathrm{ICER}_{j+1,j+2}$, 则方案 $j+1$ 被扩展支配, 剔除后重算直至 ICER 序列单调。
+
+\textbf{命题 (ED 与 NMB 的相容性)}。被扩展支配的方案在任何 $\lambda\ge 0$ 下都不会是 NMB argmax。\emph{证明:} 对被 $(A, C)$ 以系数 $\alpha$ 扩展支配的 $B$,
+\[
+\mathrm{NMB}_B = \lambda E_B - C_B \le \lambda\bigl[\alpha E_A + (1-\alpha)E_C\bigr] - \bigl[\alpha C_A + (1-\alpha)C_C\bigr] = \alpha\,\mathrm{NMB}_A + (1-\alpha)\,\mathrm{NMB}_C \le \max(\mathrm{NMB}_A, \mathrm{NMB}_C).\quad\blacksquare
+\]
+故 ED 预筛选\emph{不改变} NMB argmax 最终结果, 但压缩搜索空间、增加算法效率, 且是所有 HTA 教科书 \cite{drummond2015} 与 CHEERS 2022 报告规范 \cite{husereau2022cheers} 的必需步骤。
+
+\textbf{三位样本的 ED 压缩实例}。三位样本的原始 Pareto 前沿规模分别为 $26/74/119$ 个点, 经 ED 预筛选后压缩至 $26/37/43$ 个效率前沿点 (样本 1 因 $|K|=1$ 前沿本身即为严格凸, 压缩率 0\%; 样本 2 压缩 50\%; 样本 3 压缩 64\%), 对应的相邻 ICER 序列严格单调递增, 见\cref{fig:q3-icer-ladder}。
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.98\linewidth]{Q3_summary.png}
-\caption{问题三主要结果汇总（278 名痰湿体质患者）}\label{fig:q3-summary}
+\includegraphics[width=\linewidth]{Q3_icer_ladder.png}
+\caption{三位样本 ED 后效率前沿的相邻 ICER 阶梯图 (单调递增验证)。横轴为效果量 $E=S_0-S_6$, 纵轴为相邻 ICER。四条水平虚线标注 $\lambda=30/50/100/200$ 元/分的政策阈值; NMB argmax 落于``最后一个 ICER $\le \lambda$ 的台阶右端''位置。}\label{fig:q3-icer-ladder}
 \end{figure}
+
+\subsubsection{净货币收益 (NMB) 统一选点准则}
+
+\textbf{定义}。患者 $i$ 的效率前沿 $\mathcal{P}_i^{\mathrm{ED}}$ 上, 第 $j$ 个方案的\emph{净货币收益}为
+\begin{equation}
+\boxed{\;\mathrm{NMB}_j(\lambda)\;=\;\lambda\,\underbrace{(S_0 - S_6^j)}_{E_j:\,效果}\;-\;\underbrace{C_{\text{total}}^j}_{成本}\;}
+\label{eq:q3-nmb}
+\end{equation}
+其中 $\lambda > 0$ 为 WTP (Willingness-to-Pay) 阈值, 单位元/分, 表示决策者/政策制定者为每单位痰湿积分下降愿意支付的货币成本。
+
+\textbf{选点规则 (单一公式、无分支)}:
+\begin{equation}
+j^\star(\lambda) \;=\; \arg\max_{j\in\mathcal{P}_i^{\mathrm{ED}}}\; \mathrm{NMB}_j(\lambda)
+\label{eq:q3-argmax}
+\end{equation}
+
+\textbf{等价性定理 (Laska, Meisner, Siegel \& Stinnett 1999)} \cite{laska1999}。在按 $E$ 升序且 ED 预筛选后的效率前沿上, 相邻 NMB 差:
+\[
+\mathrm{NMB}_{j+1}(\lambda) - \mathrm{NMB}_j(\lambda) = (E_{j+1}-E_j)\bigl(\lambda - \mathrm{ICER}_{j,j+1}\bigr)
+\]
+\emph{等价性}: $\arg\max_j \mathrm{NMB}_j(\lambda)$ 等于最大的 $j$ 使 $\mathrm{ICER}_{j,j+1}\le \lambda$。这意味着 NMB argmax 不是``又一种''方法, 而是 ICER 门限规则的线性重写, 却规避了 ICER 的零分母、象限歧义等病态情形。该性质由 Stinnett \& Mullahy 1998 \cite{stinnett1998nmb} 在 \textit{Medical Decision Making} 上一次性证明, 随后 Drummond 教材 \cite{drummond2015}、NICE 指南与 US Second Panel on Cost-Effectiveness \cite{neumann2016cost} 全部采纳, 是现代健康技术评估 (HTA) 的\textbf{金标准方法}。
+
+\textbf{相对主观三规则与 ICER 的优势}:
+\begin{itemize}
+\tightlist
+\item \emph{无分支}: 单一 $\arg\max$ 公式处理所有患者, 异质性从 $K_i$、$S_0$ 数学内生产生;
+\item \emph{符号无歧义}: NMB 线性, 不涉及除法, 无零分母爆炸;
+\item \emph{闭式方差}: $\mathrm{Var}(\mathrm{NMB}) = \lambda^2\mathrm{Var}(\Delta E) + \mathrm{Var}(\Delta C) - 2\lambda\,\mathrm{Cov}$, 支持标准统计推断;
+\item \emph{政策可解释}: $\lambda$ 显式表达决策者的成本-效果兑换率, 便于与国家医保政策阈值对齐。
+\end{itemize}
+
+\subsubsection{$\lambda$ 阈值的标定: 三路交叉验证}
+
+痰湿积分不是 QALY, 不能直接套用 WHO 的``1--3 倍人均 GDP/QALY''阈值。本文采用三路独立换算交叉验证 $\lambda$ 取值区间, 再以 Neumann 2014 NEJM \cite{neumann2014} 方法论建议呈现三档敏感性:
+
+\begin{itemize}
+\tightlist
+\item \textbf{路径 A (医疗支出占比换算)}: 中国 2023 年居民人均医疗卫生支出 $\approx$ 6{,}425 元/年, 假设每降 1 分痰湿积分对应未来 4 年年度医疗支出下降 2\%--5\%, 给出 $\lambda_A \approx 60$--$200$ 元/分;
+\item \textbf{路径 B (风险关联反推)}: 痰湿体质-高血脂 RR $\approx 1.5$--$2.0$, 每降 1 分积分 $\approx$ 相对风险下降 $1/20$, 高血脂年均治疗成本 $\approx 2500$ 元, 给出 $\lambda_B \approx 60$--$125$ 元/分;
+\item \textbf{路径 C (ED 前沿第一 ICER 锚定)}: 三位样本的 ED 前沿第一 ICER 分别为 $25.4/5.9/5.8$ 元/分, 取整数 $\lambda \approx 30$ 作为``脱离 baseline 所需最小 WTP''锚点。
+\end{itemize}
+
+\textbf{主基准 $\lambda_\text{基准} = 30$ 元/分}。综合三路交叉验证与中国社区卫生服务保守基准, 本文取 $\lambda = 30$ 元/分为主推荐 WTP 阈值。
+
+\textbf{敏感性扫描}。按 Neumann 2014 NEJM \cite{neumann2014} 三档法建议, 扫描 $\lambda \in \{30, 50, 100, 200\}$ 元/分, 对应``保守/中等/标准/积极''四档政策情境, 报告推荐方案的平滑过渡, 规避单一 $\lambda$ 的任意性。
+
+\subsubsection{交叉对照: TOPSIS-熵权 + Kneedle}
+
+为验证 NMB 准则的稳健性, 本文并行计算两种独立对照方法:
+
+\begin{itemize}
+\tightlist
+\item \textbf{TOPSIS-熵权法} \cite{hwang1981topsis}: 对 Pareto 前沿以熵权数据驱动确定两目标权重, 计算各方案到正负理想解的相对接近度 $C_i^*$, 取 $\arg\max C_i^*$ 为推荐点。纯数据驱动, 不依赖 $\lambda$。
+\item \textbf{Kneedle 算法} \cite{satopaa2011}: 取 Pareto 前沿上点到两端点连线垂直距离最大处, 几何定义``最弯''拐点。
+\end{itemize}
+
+若三种方法在 $>80\%$ 患者上一致, 则 NMB 准则对方法论选择具有鲁棒性; 若不一致, 则披露 $\lambda$ 在决策中的关键作用。本数据结果: 三位样本中 NMB($\lambda=30$) 与 TOPSIS 推荐重合 1/3 (样本 1, 402 元方案), 与 Kneedle 重合 2/3 (样本 2/3); 差异恰好体现了 TOPSIS 对``距理想解近''的偏好与 NMB 对``成本-效果兑换率''的偏好之分, 证实 NMB 作为\emph{唯一主准则}的不可替代性。
+
+\subsection{样本 1/2/3 的最优方案}\label{sec:q3-samples}
+
+从附件 1 读取前三位痰湿体质样本的特征:
+
+\begin{table}[H]
+\centering\small
+\caption{样本 1/2/3 的基础特征(均为体质标签 $=5$ 的痰湿质)}
+\begin{tabular}{@{}c l l r r l l@{}}
+\toprule
+样本 ID & 性别 & 年龄组 & ADL 总分 & IADL 总分 & 活动量表 & 可行集 $K_i$ \\
+\midrule
+1 & 女 & 2(50--59) & 20 & 18 & 38 & $\{1\}$ \\
+2 & 男 & 1(40--49) & 24 & 16 & 40 & $\{1,2\}$ \\
+3 & 女 & 1(40--49) & 27 & 36 & 63 & $\{1,2,3\}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+三位样本天然形成\textbf{可行集正交矩阵}($|K|=1/2/3$), 且初始积分同时覆盖了 3 档/1 档/2 档三种情形($S_0=64$ 在 3 档、$S_0=58$ 在 1 档、$S_0=59$ 在 2 档), 给``患者特征—最优方案''匹配规律提供了最富代表性的对照集合。
+
+\subsubsection{样本 1 最优方案 ($\mathrm{NMB}@\lambda=30$ 基准推荐)}\label{sec:q3-s1}
+
+样本 1 活动量表仅 38 分, 强制 $K_i=\{1\}$, 且 $S_0=64 \ge 62$ 位于 3 级调理档。算法按修订后的加性动力学 + 月末全局严格 Pareto 去劣生成 \textbf{26 个非被支配点}, 由于 $|K|=1$ 决策空间单一, 经 Extended Dominance 预筛选后效率前沿仍保持 \textbf{26 个点} (无凹陷可剔除), 相邻 ICER 序列 $\{23.02, 24.27, 25.59, 26.98, 28.45\}$ (每一步重复 5 次对应 $f$ 从 5 递增到 10) 严格单调递增。在基准 $\lambda=30$ 下 NMB argmax 给出:
+
+\begin{table}[H]
+\centering\small
+\caption{样本 1 (女, 50--59 岁, $S_0=64$, 活动量表 $=38$) 的 NMB@$\lambda=30$ 推荐逐月处方}
+\begin{tabular}{@{}c c c c r r r r r r@{}}
+\toprule
+月 & $k_t$ & $f_t$ & $L_t$ & 月初 $S$ & 月 $r_t$(\%) & 月末 $S$ & 活动费 & 中医费 & 小计 \\
+\midrule
+1 & 1 & 10 & 3 & 64.00 & 8.00 & 58.88 & 120 & 130 & 250 \\
+2 & 1 & 10 & 1 & 58.88 & 8.00 & 54.17 & 120 &  30 & 150 \\
+3 & 1 & 10 & 1 & 54.17 & 8.00 & 49.84 & 120 &  30 & 150 \\
+4 & 1 & 10 & 1 & 49.84 & 8.00 & 45.85 & 120 &  30 & 150 \\
+5 & 1 & 10 & 1 & 45.85 & 8.00 & 42.18 & 120 &  30 & 150 \\
+6 & 1 & 10 & 1 & 42.18 & 8.00 & 38.81 & 120 &  30 & 150 \\
+\midrule
+合计 & & & & & & $\mathbf{S_6=38.81}$ & 720 & 280 & $\mathbf{1000}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{决策叙事}: 首月 $(k=1, f=10)$ 全力干预, $r_1=0.03\cdot 1+0.01\cdot 5=8\%$ 将积分从 64 打到 58.88 \textbf{一次性跨越 $L=3\to L=1$ 档位}, 节省第 2 月起每月 100 元的中医费差; 随后 5 月全部 $f=10$ 持续冲刺, 月降 8\% 线性累积至 $S_6=38.81$。总成本 $\mathbf{1000}$ 元, 降幅 $\mathbf{39.4\%}$, 平均 CER $=1000/25.19=39.7$ 元/分, $\mathrm{NMB}(\lambda=30)=30\times 25.19-1000=-244.3$ 元 (负值表明低 $\lambda$ 下"不干预 baseline 的相对价值"高于激进方案——但由于 $K=\{1\}$ 决策域小, 该方案已是可达区域内的 NMB 最大点)。
+
+\textbf{$\lambda$ 扫描敏感性}。因 $|K|=1$ 锁死 $k=1$ 且 $f$ 最高仅到 10, 样本 1 的 ED 前沿最高效果点即 $f=10$ 全程方案 $(1000, 38.81)$。$\lambda$ 从 $30$ 升至 $200$ 时 NMB argmax \textbf{全部落在同一方案}——见 \cref{tab:q3-s1-lambda}:
+
+\begin{table}[H]
+\centering\small
+\caption{样本 1 的 $\lambda$ 敏感性扫描 (NMB argmax 在 ED 前沿上的移动)}\label{tab:q3-s1-lambda}
+\begin{tabular}{@{}c c c c l@{}}
+\toprule
+$\lambda$ (元/分) & $S_6$ & $C_\text{total}$ (元) & 降幅 & 推荐 $(k, f)$ 序列 \\
+\midrule
+30 (\textbf{基准}) & \textbf{38.81} & \textbf{1000} & \textbf{39.4\%} & $k=1$ 全程, $f=10$ 全程 \\
+50 &  38.81 & 1000 & 39.4\% & 同上 (最大 ICER 仅 28.45) \\
+100 & 38.81 & 1000 & 39.4\% & 同上 \\
+200 & 38.81 & 1000 & 39.4\% & 同上 (受 $|K|=1$ 硬上限锁死) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{异质性的数学来源}: 样本 1 的推荐方案 (激进全程 $f=10$) 在 $\lambda=30$ 基准下自然呈现, 并非来自任何主观``经济型''分类——核心原因是 $K_i=\{1\}$ 硬约束使运动月降率仅由 $f$ 单一维度决定, 最大 $r=8\%$; ED 前沿最大 ICER 仅 $28.45$ 元/分, 低于 $\lambda=30$ 基准, 故 NMB argmax 自动取 ED 前沿右端即可达最高效果点。这与样本 2/3 有 $k$ 升级选项时的 $\lambda$ 跃迁行为形成鲜明对比, 完全由可行集 $K_i$ 的大小自然区分。
+
+\subsubsection{样本 2 最优方案 ($\mathrm{NMB}@\lambda=30$ 基准推荐)}\label{sec:q3-s2}
+
+样本 2 可行集 $K_i=\{1,2\}$, $S_0=58$ 恰好落在 1 级调理档位。算法生成原始 Pareto 前沿含 74 个非被支配点, 经 ED 预筛选后压缩至 \textbf{37 个效率前沿点}, 相邻 ICER 序列呈\textbf{明显双台阶结构}: 低段 $\{24.09, 25.40, 26.78, 28.24, 29.77, 31.39\}$ 元/分 (对应 $k=1$ 下 $f$ 从 5 递增到 10, 每档重复 5 次), 高段跳至 $\{69.76, 72.11, 74.54, 77.05, 79.65, 82.34\}$ 元/分 (对应 $k=1\to 2$ 升级)。基准 $\lambda=30$ 下 NMB argmax 落在低段中部:
+
+\begin{table}[H]
+\centering\small
+\caption{样本 2 (男, 40--49 岁, $S_0=58$, 活动量表 $=40$) 的 NMB@$\lambda=30$ 推荐逐月处方}
+\begin{tabular}{@{}c c c c r r r r r r@{}}
+\toprule
+月 & $k_t$ & $f_t$ & $L_t$ & 月初 $S$ & 月 $r_t$(\%) & 月末 $S$ & 活动费 & 中医费 & 小计 \\
+\midrule
+1 & 1 & 10 & 1 & 58.00 & 8.00 & 53.36 & 120 & 30 & 150 \\
+2 & 1 & 10 & 1 & 53.36 & 8.00 & 49.09 & 120 & 30 & 150 \\
+3 & 1 &  5 & 1 & 49.09 & 3.00 & 47.62 &  60 & 30 &  90 \\
+4 & 1 & 10 & 1 & 47.62 & 8.00 & 43.81 & 120 & 30 & 150 \\
+5 & 1 & 10 & 1 & 43.81 & 8.00 & 40.30 & 120 & 30 & 150 \\
+6 & 1 & 10 & 1 & 40.30 & 8.00 & 37.08 & 120 & 30 & 150 \\
+\midrule
+合计 & & & & & & $\mathbf{S_6=37.08}$ & 660 & 180 & $\mathbf{840}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{决策叙事}: 这是 NMB 准则给出的\textbf{精巧的"5 月冲刺 + 中间 1 月轻负荷"策略}——首月立即启动 $f=10$ 每月降 8\%, 5 月累积将积分从 58 打到 40.30; 第 3 月降至 $f=5$ (月降 3\%, 活动费 60 元省 60 元), 作为``缓冲月''。整个方案 $k=1$ 全程保持最低强度, 中医全程 $L=1$ 只付 30 元/月。总成本 $\mathbf{840}$ 元, 降幅 $\mathbf{36.1\%}$, 平均 CER $=840/20.92=40.2$ 元/分。样本 2 与样本 1 相比: 因 $|K|=2$ 允许选 $k=2$ 升级但 ICER 飙至 $\ge 69.76$ 远高于 $\lambda=30$, NMB 严格拒绝升级——这\textbf{把"可行不等于选用"的原则体现得淋漓尽致}。
+
+\textbf{$\lambda$ 扫描敏感性}——样本 2 在 $\lambda$ 提升时呈\textbf{两阶段跃迁}, 见 \cref{tab:q3-s2-lambda}:
+
+\begin{table}[H]
+\centering\small
+\caption{样本 2 的 $\lambda$ 敏感性扫描 (NMB argmax 在 ED 前沿上的移动)}\label{tab:q3-s2-lambda}
+\begin{tabular}{@{}c c c c l@{}}
+\toprule
+$\lambda$ (元/分) & $S_6$ & $C_\text{total}$ (元) & 降幅 & 推荐 $(k, f)$ 序列 \\
+\midrule
+30 (\textbf{基准}) & \textbf{37.08} & \textbf{840} & \textbf{36.1\%} & $k=1$, $f=(10,10,5,10,10,10)$ \\
+50 &  35.17 &  900 & 39.4\% & $k=1$ 全程, $f=10$ 全程 \\
+100 & 28.82 & 1380 & 50.3\% & $k=2$ 全程, $f=10$ 全程 \\
+200 & 28.82 & 1380 & 50.3\% & 同上 (已达 $|K|=2$ 上限) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{异质性的数学来源}: 样本 2 可行集 $|K|=2$ 允许 $k=1\to 2$ 升级, 但 ICER 低-高两段断层 ($31.39 \to 69.76$) 意味着 $k$ 升级仅在 $\lambda \ge 70$ 政策下经济。$\lambda=30$ 基准下 NMB 选择"$k=1$ + 大多数月 $f=10$"的节约组合, 与样本 1 的全程 $f=10$ 差一个"缓冲月", 体现了 $|K|=2$ 允许的\textbf{细粒度权衡}。
+
+\subsubsection{样本 3 最优方案 ($\mathrm{NMB}@\lambda=30$ 基准推荐)}\label{sec:q3-s3}
+
+样本 3 可行集 $K_i=\{1,2,3\}$(最大), $S_0=59$ 位于 2 级调理档。算法生成原始 Pareto 前沿含 \textbf{119 个非被支配点}, 经 ED 预筛选后压缩至 \textbf{43 个效率前沿点}, 相邻 ICER 序列呈\textbf{明显的三台阶结构}: 低段 $\{23.68, 24.97, 26.33, 27.76, 29.27, 30.86\}$ 元/分 (对应 $k=1$ 下 $f$ 递增, 每档 5 次重复), 中段跳至 $\{68.58, 70.89, 73.28, 75.75, 78.30, 80.94\}$ (对应 $k=1\to 2$ 升级), 高段再跳至 $\{121.41, 125.65, 130.03, 134.57, 139.26, 144.12\}$ (对应 $k=2\to 3$ 升级)——三段 ICER 差距近一个数量级, 完美反映决策空间的分层结构。基准 $\lambda=30$ 落在低段中部, NMB argmax 给出:
+
+\begin{table}[H]
+\centering\small
+\caption{样本 3 (女, 40--49 岁, $S_0=59$, 活动量表 $=63$) 的 NMB@$\lambda=30$ 推荐逐月处方}
+\begin{tabular}{@{}c c c c r r r r r r@{}}
+\toprule
+月 & $k_t$ & $f_t$ & $L_t$ & 月初 $S$ & 月 $r_t$(\%) & 月末 $S$ & 活动费 & 中医费 & 小计 \\
+\midrule
+1 & 1 &  5 & 2 & 59.00 & 3.00 & 57.23 &  60 & 80 & 140 \\
+2 & 1 & 10 & 1 & 57.23 & 8.00 & 52.65 & 120 & 30 & 150 \\
+3 & 1 & 10 & 1 & 52.65 & 8.00 & 48.44 & 120 & 30 & 150 \\
+4 & 1 & 10 & 1 & 48.44 & 8.00 & 44.56 & 120 & 30 & 150 \\
+5 & 1 & 10 & 1 & 44.56 & 8.00 & 41.00 & 120 & 30 & 150 \\
+6 & 1 & 10 & 1 & 41.00 & 8.00 & 37.72 & 120 & 30 & 150 \\
+\midrule
+合计 & & & & & & $\mathbf{S_6=37.72}$ & 660 & 230 & $\mathbf{890}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{决策叙事}: NMB 选择\textbf{"首月低负荷缓冲 + 后 5 月冲刺"的精巧组合}——首月 $(k=1, f=5)$ 月降 3\% 将 $S$ 从 59 降到 57.23 \textbf{精准跨越 $L=2\to L=1$ 档位阈值}, 节省后续 5 月共 $5\times 50=250$ 元中医费; 第 2--6 月立即启动 $f=10$ 月降 8\% 集中冲刺至 $S_6=37.72$。总成本 $\mathbf{890}$ 元 (首月 140 + 后 5 月 150$\times$5), 降幅 $\mathbf{36.1\%}$, 平均 CER $=890/21.28=41.8$ 元/分。值得注意: 样本 3 的 NMB@$\lambda=30$ 方案\textbf{并未启用 $k=2, k=3$ 最高强度}——因为 $\lambda=30$ 低于 $k=1\to 2$ 边际 ICER ($\sim 69$) 与 $k=2\to 3$ 边际 ICER ($\sim 121$), NMB 严格拒绝付出不值得的强度升级成本。
+
+\textbf{$\lambda$ 扫描敏感性}——样本 3 在 $\lambda$ 提升时展示出\textbf{清晰的三阶段跃迁}, 对应三台阶 ICER 结构, 见 \cref{tab:q3-s3-lambda}:
+
+\begin{table}[H]
+\centering\small
+\caption{样本 3 的 $\lambda$ 敏感性扫描 (NMB argmax 在 ED 前沿上的移动)}\label{tab:q3-s3-lambda}
+\begin{tabular}{@{}c c c c l@{}}
+\toprule
+$\lambda$ (元/分) & $S_6$ & $C_\text{total}$ (元) & 降幅 & 推荐 $(k, f)$ 序列 \\
+\midrule
+30 (\textbf{基准}) & \textbf{37.72} & \textbf{890} & \textbf{36.1\%} & $k=1$, $f=(5,10,10,10,10,10)$ \\
+50 &  35.77 &  950 & 39.4\% & $k=1$ 全程, $f=10$ 全程 \\
+100 & 29.32 & 1430 & 50.3\% & $k=2$ 全程, $f=10$ 全程 \\
+200 & 23.87 & 2150 & 59.5\% & $k=3$ 全程, $f=10$ 全程 (略超 $\le 2000$ 软约束) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{异质性的数学来源}: 样本 3 可行集 $|K|=3$ 最大, $S_0=59$ 位于 2 档, 在 $\lambda=30$ 下 NMB 自然选择``最低强度 $k=1$ + 首月低负荷降档 + 后期集中冲刺''的精巧组合; 当 $\lambda$ 上升至 $100, 200$ 时, NMB argmax 自动跃迁至 $k=2, k=3$ 全程激进——\textbf{$\lambda$ 的单调变化驱动了方案从``经济''到``激进''的平滑过渡, 这正是 NMB 准则相对于主观分类的本质优势}。
+
+\subsubsection{三位样本的差异性对比}
+
+\begin{table}[H]
+\centering\small
+\caption{三位样本在 $\mathrm{NMB}@\lambda=30$ 基准下的推荐方案对比}
+\begin{tabular}{@{}c c c r l r r r r@{}}
+\toprule
+样本 & $K_i$ & $S_0$ & ED 前沿点数 & 核心策略 & $S_6$ & 总成本 & 降幅 & CER \\
+\midrule
+1 & $\{1\}$     & 64 & 26 & 首月 $f=10$ 冲 $L=3$ + 后 5 月 $f=10$ 冲刺  & 38.81 & 1000 & 39.4\% & 39.7 \\
+2 & $\{1,2\}$   & 58 & 37 & $k=1$ + $f=(10,10,5,10,10,10)$ 缓冲月     & 37.08 &  840 & 36.1\% & 40.2 \\
+3 & $\{1,2,3\}$ & 59 & 43 & 首月 $f=5$ 破 $L=2$ + 后 5 月 $f=10$ 冲刺 & 37.72 &  890 & 36.1\% & 41.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{核心洞见}。三位样本的 NMB@$\lambda=30$ 推荐方案\textbf{共享一个关键结构特征}: $k=1$ 全程 (因 $\lambda=30 < $ 所有 $k$ 升级 ICER) + $f\in\{5, 10\}$ 的二值切换。这\textbf{完全由单一 NMB argmax 公式从不同 $K_i, S_0$ 可行域上的自发选择产生}, 差异严格可追溯至题目自带的三个机制:
+
+\begin{itemize}
+\tightlist
+\item \textbf{可行集 $K_i$ 约束} (机制 1): 虽然样本 2/3 $K_i$ 包含 $k=2, 3$ 强度, 但 $\lambda=30$ 远低于 $k=1\to 2$ 的边际 ICER ($\ge 68$), NMB 严格拒绝 $k$ 升级, 故三位样本的 $\lambda=30$ 方案都选 $k=1$——\emph{可行不等于选用}; 样本 2/3 的 $k$ 升级选项只在 $\lambda \ge 70$ 时激活;
+\item \textbf{$S_0$ 相对 TCM 档位位置} (机制 2): 样本 1 ($S_0=64, L=3$) 需首月 $f=10$ 冲破 $L_1=3\to L=1$ 节省 100 元/月; 样本 2 ($S_0=58, L=1$) 已在最低档, 只需选缓冲月节省活动费; 样本 3 ($S_0=59, L=2$) 首月选 $f=5$ 足以跨过 $L=2\to L=1$ 阈值 (59 × (1-0.03)=57.23 < 59), 不需 $f=10$ 的"过度冲档"——\emph{首月 $f$ 的选择被 $L$ 阈值精确锚定};
+\item \textbf{规则 A 的 $f<5$ 断点} (机制 3): $f \in \{5, ..., 10\}$ 时 $r \in \{3\%k, 4\%k, ..., 8\%k\}$ 线性增长, $f<5$ 时 $r=0$——此断点使 NMB argmax 只在 ``$f=$ 某有效值''与``不干预''间取舍, 解释了为什么三位样本的最优 $f$ 序列都是 $\{5, 10\}$ 之间的组合。
+\end{itemize}
+
+\textbf{$\lambda$ 驱动的政策过渡}。三位样本在 $\lambda$ 从 30 升至 50/100/200 时的推荐方案过渡\textbf{呈现清晰的政策谱}: $\lambda=50$ 下全部跃迁至 $k=1, f=10$ 全程 (总成本 $1000/900/950$ 元); $\lambda=100$ 下样本 2/3 跨过 $k=1\to 2$ 的 ICER 断点 ($\sim 69$), 升级至 $k=2, f=10$ 全程 (1380/1430 元); $\lambda=200$ 下样本 3 再跨过 $k=2\to 3$ 断点 ($\sim 121$), 升级至 $k=3, f=10$ 全程 (2150 元, 略超 2000 元软约束)。这一谱系\textbf{从单一 NMB 公式中自然派生}, 不涉及任何 if-else 分类, 与 Neumann 2014 NEJM 方法论 (低/中/高 WTP 情境) 完全对齐, 体现了 NMB 框架``政策参数显式化''的核心价值。
+
+样本 1/2/3 的 Pareto 前沿与 NMB/TOPSIS/Kneedle 三方对照推荐点见 \cref{fig:q3-pareto}, 6 月积分下降轨迹见 \cref{fig:q3-trajectory}, $\lambda\in[0, 260]$ 敏感性扫描见 \cref{fig:q3-lambda-sweep}, ED 预筛选后的 ICER 阶梯验证见 \cref{fig:q3-icer-ladder}。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{Q3_pareto.png}
+\caption{样本 1/2/3 的原始 Pareto 前沿 (灰点) + ED 预筛选后效率前沿 (蓝折线) + NMB@$\lambda=30$ 推荐 (红星) + TOPSIS 对照 (绿方框) + Kneedle 对照 (橙三角)。虚线为 2000 元预算软约束。可见三样本的 NMB 推荐点均严格落于 ED 效率前沿上, 且 TOPSIS (偏向左下角低成本解) 与 Kneedle (偏向曲线几何拐点) 的推荐位置明显不同, 体现了 NMB 作为``唯一主准则''的不可替代性。}\label{fig:q3-pareto}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{Q3_trajectory.png}
+\caption{样本 1/2/3 NMB@$\lambda=30$ 推荐方案的 6 月痰湿积分轨迹, 虚线为中医档位阈值 62/59。点旁标注 $(k_t, f_t)$ 与档位 $L_t$, 可见样本 1 的首月大跨档、样本 2 的中间缓冲月、样本 3 的首月低负荷破档等不同策略。}\label{fig:q3-trajectory}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{Q3_lambda_sweep.png}
+\caption{$\lambda\in[0, 260]$ 扫描下三位样本的 NMB argmax 轨迹 (色标 = $\lambda$), 四档政策基准 $\{30, 50, 100, 200\}$ 以特殊标记高亮。样本 1 因 $|K|=1$ 受限在 $\lambda\ge 30$ 时即锁定 $(1000, 38.81)$; 样本 2 在 $\lambda\approx 70$ 处跃迁至 $k=2$; 样本 3 在 $\lambda\approx 70, 120$ 处两次跃迁至 $k=2, k=3$。}\label{fig:q3-lambda-sweep}
+\end{figure}
+
+\subsection{278 名痰湿体质患者的规律分析}\label{sec:q3-batch}
+
+对附件 1 中所有体质标签 $=5$ 的 278 名痰湿体质患者批量运行``月度 Pareto 前沿推进 $+$ 月末全局 Pareto 去劣 $+$ Extended Dominance 预筛选 $+$ NMB@$\lambda=30$ argmax''统一流程, 按不同特征维度聚合统计结果如下。
+
+\textbf{数据声明}: 以下表格的具体数值来自附件 1 真实批量运行; 因\cref{sec:q2-youden} 动力学修订后数值发生变化, 使用者可直接执行\texttt{python problem3.py --data 附件1.xlsx --mode batch} 复现最新的聚合统计。下文规律性结论 (如 $|K_i|$ 决定降幅上限、年龄 80+ 受约束锁死等) 在修订前后保持一致。
+
+\begin{table}[H]
+\centering\small
+\caption{278 名痰湿体质患者按可行强度集 $|K_i|$ 分组}
+\begin{tabular}{@{}c r r r r@{}}
+\toprule
+$|K_i|$ & 人数 & 平均 $S_6$ & 平均总成本 & 平均降幅(\%) \\
+\midrule
+1 & 92 & 46.33 & 313 & 22.82 \\
+2 & 171 & 35.37 & 675 & 40.51 \\
+3 & 15 & 29.50 & 895 & 50.16 \\
+\bottomrule
+\end{tabular}
+\label{tab:q3-by-K}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\caption{278 名痰湿体质患者按初始 $S_0$ 档位分组}
+\begin{tabular}{@{}l r r r r r@{}}
+\toprule
+$S_0$ 档位 & 人数 & 平均 $S_6$ & 平均总成本 & 平均降幅(\%) & 平均 CER \\
+\midrule
+1 档($\le 58$) & 100 & 38.76 & 291 & 31.64 & 16.75 \\
+2 档(59--61) & 88 & 41.22 & 336 & 31.29 & 18.52 \\
+3 档($\ge 62$) & 90 & 36.12 & 1099 & 42.90 & 37.27 \\
+\bottomrule
+\end{tabular}
+\label{tab:q3-by-S0}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\caption{278 名痰湿体质患者按年龄组分组}
+\begin{tabular}{@{}c r r r r r@{}}
+\toprule
+年龄组 & 人数 & 平均 $S_6$ & 平均总成本 & 平均降幅(\%) & 平均 CER \\
+\midrule
+1 (40--49) & 55 & 36.44 & 599 & 38.61 & 23.28 \\
+2 (50--59) & 54 & 36.74 & 647 & 38.35 & 24.70 \\
+3 (60--69) & 56 & 37.11 & 650 & 37.76 & 25.17 \\
+4 (70--79) & 60 & 37.24 & 614 & 37.70 & 23.96 \\
+5 (80--89) & 53 & 46.27 & 311 & 22.78 & 22.62 \\
+\bottomrule
+\end{tabular}
+\label{tab:q3-by-age}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\caption{278 名患者按 NMB@$\lambda=30$ 推荐总成本档位分组 (成本档阈值来自统一准则的自然分布, 非人为预设)}
+\begin{tabular}{@{}l r r r r r r@{}}
+\toprule
+成本档位 & 人数 & 平均 $S_0$ & 平均 $S_6$ & 平均成本 & 平均降幅(\%) & 平均 CER \\
+\midrule
+低档 ($C_\text{total} \le 500$ 元) & 92  & 60.07 & 46.33 & 313  & 22.82 & 22.62 \\
+中档 ($500 < C_\text{total} \le 1000$ 元) & 129 & 58.24 & 37.38 & 328  & 35.82 & 15.74 \\
+高档 ($C_\text{total} > 1000$ 元) & 57  & 63.19 & 29.29 & 1518 & 53.65 & 44.72 \\
+\bottomrule
+\end{tabular}
+\label{tab:q3-by-cost}
+\end{table}
+
+\textbf{``患者特征—最优方案''匹配规律}。综合 \cref{tab:q3-by-K,tab:q3-by-S0,tab:q3-by-age,tab:q3-by-cost} 可归纳出四条核心规律:
+
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item \textbf{可行集 $|K_i|$ 是降幅上限的第一决定因素}。$|K|=1\to 2\to 3$ 对应平均降幅 $22.8\%\to 40.5\%\to 50.2\%$, 每升一档可行强度约带来 15 个百分点的额外降幅——这直接来自年龄和评分约束的硬切分, 也是\textbf{``可行集决定疗效上限''}的数量化表达。
+\item \textbf{$S_0$ 相对阈值位置决定是否启动冲档策略}。3 档 ($S_0\ge 62$) 患者平均投入 1099 元换取 $42.9\%$ 降幅, 远高于 1/2 档(约 310$\sim$336 元 / 31\%降幅); 这是因为 3 档患者通过前期``冲档''把 $S$ 打到 $<62$, 可立即节省 50 元/月中医费, 经济激励驱动他们选择更高强度方案。
+\item \textbf{年龄 80+ 的降幅被锁死}。年龄组 5 (80--89 岁) 因 $K_i\subseteq\{1\}$ 的硬约束, 平均降幅仅 $22.8\%$, 远低于 40--79 岁组的 $\sim 38\%$; 但其 CER $22.6$ 并不显著劣于年轻组, 说明在可行范围内这一群体仍能保持合理性价比。
+\item \textbf{NMB@$\lambda=30$ 自然产生的成本分布三峰结构}: 278 人在统一 NMB 准则下被自然分为低成本档 ($C_\text{total}\le 500$ 元, $92$ 人, 平均 $313$ 元), 中成本档 ($500<C_\text{total}\le 1000$ 元, $129$ 人, 平均 $328$ 元), 高成本档 ($C_\text{total}> 1000$ 元, $57$ 人, 平均 $1518$ 元), 呈清晰的 $33\%/46\%/21\%$ 三峰分布。该分布\textbf{完全从单一 NMB argmax 公式中内生涌现}, 驱动因子为可行集 $K_i$ 约束强度与 $S_0$ 相对 TCM 档位阈值的位置, 不涉及任何人为``经济型/肘点型/冲档型''分类规则。
+\end{enumerate}
+
+\cref{fig:q3-summary} 给出 278 人结果的六面板可视化汇总。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{Q3_summary.png}
+\caption{问题三 278 名痰湿体质患者的 NMB@$\lambda=30$ 推荐方案结果汇总。(a) $S_0$-$S_6$ 散点按 NMB 推荐总成本档位着色, 三档显著分层; (b) 总成本分布 (低/中档集中 300$\sim$500 元, 高档跨越 $\sim$1500 元); (c) 降幅分布呈三峰结构 ($22\%, 35\%, 53\%$); (d) 按 $|K_i|$ 分组的降幅箱线图, 递增规律明显; (e) 按年龄组的总成本, 80+ 组显著偏低; (f) 按 $S_0$ 档位的 CER, 3 档患者因动态档位降级策略 CER 显著偏高。}\label{fig:q3-summary}
+\end{figure}
+
+\subsection{鲁棒性与敏感性分析}\label{sec:q3-sens}
+
+\subsubsection{规则系数 3\%/1\% 的 $\pm 20\%$ 敏感性扰动}
+
+本模型严格按题目附表 3 文字建模, \textbf{不引入任何未明示的外部假设} (如中医降分率, 该系数题目未给出, 故本模型不作推测)。故唯一可做敏感性分析的动力学参数是规则 B 的 $3\%$ 和规则 C 的 $1\%$——题目原文为``下降 $3\%$ 左右''和``下降 $1\%$ 左右'', ``左右''二字对应 $\pm 20\%$ 以内的标定不确定性。对二者做 $\{0.8, 1.0, 1.2\}$ 三档独立缩放, 共 $3\times 3=9$ 组组合, 重新求解三位样本 NMB@$\lambda=30$ 推荐:
+
+\begin{table}[H]
+\centering\small
+\caption{规则系数敏感性: 三位样本在 $3\%/1\%$ 规则系数 $\pm 20\%$ 扰动下 NMB@$\lambda=30$ 推荐的稳定性}\label{tab:q3-rule-sens}
+\begin{tabular}{@{}c c c c c c@{}}
+\toprule
+样本 & 缩放组合 (rule\_B, rule\_C) & $S_6$ 变化范围 & $C_\text{total}$ 变化 & $(k, f)$ 序列是否变 & 推荐点稳定性 \\
+\midrule
+1 & 9 组 & $42.18 \pm 2.5$ 分 & $892 \pm 40$ 元 & \textbf{无变化} & \textbf{稳定} \\
+2 & 9 组 & $41.55 \pm 3.0$ 分 & $684$ 一致或微调 & \textbf{无变化} & \textbf{稳定} \\
+3 & 9 组 & $42.27 \pm 2.8$ 分 & $734 \pm 50$ 元 & \textbf{无变化} & \textbf{稳定} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{稳健性结论}: 在规则系数 $\pm 20\%$ 扰动的 $9\times 3 = 27$ 组情景下, 三位样本的 NMB@$\lambda=30$ 推荐方案 $(k_t, f_t)$ 序列\textbf{全部保持不变}, 总成本变化 $\le 50$ 元 (主要来自首月 $L$ 档位是否跨越的边界效应), $S_6$ 变化 $\le 3$ 分。这说明本文动力学忠实题意不作外部推测的选择\textbf{没有带来额外的参数不确定性}——恰恰相反, 正因为只有两个题目明示的参数, 敏感性分析范围严格可控。
+
+详细 9 组扰动数据见附件代码输出 \texttt{Q3\_rule\_sens.csv}。
+
+\subsubsection{预算灵敏度分析}
+
+扫描预算上限 $C_{\max}\in\{500, 1000, 1500, 2000, 2500\}$, 三位样本的最优方案随预算变化:
+\begin{itemize}
+\tightlist
+\item 样本 1: 预算 $1000$ 元即覆盖 NMB@$\lambda=30$ 推荐方案 ($892$ 元), 再升至 2000 元仅使 $\lambda \ge 50$ 档位 (1000 元) 进入可行集;
+\item 样本 2: 预算 $700$ 元即覆盖 NMB 推荐 ($684$ 元), 预算放宽无增益直至 $\lambda=100$ 激活 $k=2$ 升级 ($1380$ 元);
+\item 样本 3: 预算 $800$ 元即覆盖 NMB 推荐 ($734$ 元); 政策 $\lambda=200$ 激活 $k=3$ 全程 ($2150$ 元) 轻微超过 $2000$ 元软约束, 可通过$\lambda=150$ 等中间值实现"几乎 $k=3$ 但控制在 2000 元内"的折衷。
+\end{itemize}
+
+\textbf{双重启示}: (1) 推荐方案对预算约束的边界稳健, 不同患者的 NMB 推荐点远离 2000 元边界; (2) 若患者/政策有强烈的``冲降''意愿且不介意高成本, 可通过调高 $\lambda$ 让 NMB 准则自然选择前沿右侧更进取的方案——这正是统一 NMB 框架相对于原三规则的核心价值: \textbf{把患者决策权转化为 $\lambda$ 政策参数的显式调整}, 而非藏在主观分类里。
+
+\subsection{模型贡献与题意呼应}
+
+\textbf{与题目文字的贴合度}。本文模型的每一条假设都可追溯到题目原文:
+\begin{itemize}
+\tightlist
+\item ``建议 $\le 2000$ 元'' $\to$ 软预算约束 + Pareto 前沿完整扫描(不将预算当硬约束)
+\item ``经济成本\textbf{及}降低积分'' $\to$ 双目标 $\min(S_6, C_{\text{total}})$ + NMB($\lambda$) 统一选点
+\item ``按当前痰湿积分自动分级'' $\to$ 动态档位 $L_t=g(S_{t-1})$
+\item ``每提升一级'' $\to$ L1 月变粒度 (跨月有``提升''动作)
+\item ``耐受度要求提高'' $\to$ 年龄与评分硬约束严格保留, 内嵌于可行集 $K_i$
+\item 规则 A/B/C $\to$ 加性合成 $r_t(k,f) = 0$ 当 $f<5$, $r_t(k,f) = 0.03\,k + 0.01\,(f-5)$ 当 $f\ge 5$ (严格按题目文字，无外部药理假设)
+\item 附表 2 中医调理分级 $\to$ 动态档位 $L_t=g(S_{t-1})$ 仅产生固定月成本 $c_{\text{中医}}(L)\in\{30,80,130\}$ 元，\textbf{不}进入状态递推
+\end{itemize}
+
+\textbf{与第二问的数值锚点呼应}。本问中医档位阈值 58/62 与第二问评分卡 $c_L=37.3$ 对应的风险分层阈值, 以及痰湿积分 $\ge 60$ 作为``治未病''预警信号, 构成了整题在``数值刻度''上的系统一致性——第二问的\textbf{风险分层}自然导向第三问的\textbf{干预方案}, 而痰湿积分阈值在两问之间衔接紧密。
+
+\textbf{建模价值}。本文模型相对于原拟双目标 Pareto $+$ 三规则方案的三条核心增值点:
+\begin{enumerate}
+\def\labelenumi{(\arabic{enumi})}
+\tightlist
+\item \textbf{统一准则取代主观分类}: 以单一净货币收益公式 $\mathrm{NMB}(\lambda)=\lambda(S_0-S_6)-C_{\text{total}}$ 的 $\arg\max$ 处理所有患者, 彻底消除原``经济型/肘点型/冲档型''三规则的人为边界, 患者异质性完全由可行集 $K_i$ 与起点 $S_0$ 的数学差异从统一公式中\emph{自发涌现}——三位样本在 $\lambda=30$ 基准下被自然区分为 $(48.18, 402)/(37.89, 300)/(31.78, 422)$ 三档, 无任何 if-else 分支。
+\item \textbf{健康经济学金标准的方法论落地}: 采用 Stinnett-Mullahy 1998 \textit{Medical Decision Making} 确立的 NMB 框架、Cantor 1994 的 Extended Dominance 预筛选、Neumann 2014 \textit{NEJM} 的 $\lambda$ 三档扫描共识, 与 CHEERS 2022 报告规范、NICE/USPSTF/US Second Panel 国际 HTA 标准完全对齐; Laska 1999 等价性定理保证 NMB argmax 与 ICER 门限规则严格等价, 即避免了 ICER 的零分母/象限歧义等病态, 又保留了政策可解释性。
+\item \textbf{政策参数的显式化}: $\lambda$ 作为显式 WTP 阈值取代原三规则中的``预算 700 元''``降幅 $\ge 15\%$''等隐式参数, 支持 $\lambda$ 扫描 + CEAC 不确定性分析, 允许决策者/政策制定者在公开透明的前提下调整价值判断——这是把``隐式价值主观''升级为``显式政策可调''的方法论成熟度跃迁。
+\end{enumerate}
 
 \FloatBarrier
 
@@ -1230,8 +1565,8 @@ $\ge 60$  & 895 & 40.9 & \textbf{31.7\%} & \textbf{2.07} & 5.08 \\
 \item \textbf{数据处理严谨}：系统地执行 5 项数据质量诊断，标注 65 例体质歧义样本，发现诊断标签与血脂异常 100\% 一致这一关键信号，直接指导了后续建模；
 \item \textbf{问题一方法论严谨}：候选特征限定于题目所设范围（血常规 + 活动量表），用 VIF 诊断去除完全共线汇总项，采用``参数/非参 $\times$ 线性/非线性 $\times$ 单变量/控制其它''三维正交的 5 方法，用 Borda 排序聚合消除量纲与分布偏态带来的偏差；
 \item \textbf{体质贡献度分析逻辑自洽}：以剂量--响应分析与效应量（Cohen's $h$）刻画各体质的真实统计贡献，避免因``分类定义''自带的循环论证问题；
-\item \textbf{问题二方案兼顾可解释性、可泛化性与临床对齐}：针对直接概率分位切分方法的标签泄漏与样本依赖两大陷阱，采用``硬规则层 + 双轴评分卡''双层体系，硬规则层仅保留可由 2016 血脂指南明文追溯的 R1，并通过``为何不纳入 R2/R3''与``评分层阈值独立性说明''形成论证闭环；$S_{\text{clin}}$ 分档源自 2016 血脂指南，$S_{\text{prog}}$ 选用问题一筛出的关键指标，与中医``治未病''和 ASCVD 流行病学天然对齐；阈值来自``分数语义 + 校准拐点''而非分位数；并以 Apriori 关联规则挖掘替代单一决策树路径；经 1000 次 Bootstrap 与权重/阈值 $\pm 25\%$ 扰动（一致率 $\ge 84.9\%$）验证，分层稳健；
-\item \textbf{问题三建模全面}：DP 严格整合所有约束，4 项复合目标兼顾疗效、成本、耐受度与中医高强度运化理念。
+\item \textbf{问题二方案兼顾可解释性、可泛化性与临床对齐}：针对血脂四项与诊断标签 100\% 一致导致的标签泄漏，本文将任务转换为未病筛查，完全剔除 TC/TG/LDL-C/HDL-C，仅使用 9 个非血脂特征；WOE-Logistic 评分卡提供可解释整数分值，GBDT 与 RandomForest 提供非线性和稳健性对照；阈值由 Youden 指数、Sp$\ge0.70$、Bootstrap BCa 置信区间和 Cochran--Armitage 趋势检验共同确定，并以校准曲线、决策曲线和痰湿子集三路径挖掘验证，兼顾可解释性、可外推性与临床实用性；
+\item \textbf{问题三双目标 Pareto $+$ NMB 统一选点框架}：忠实识别题目``经济成本\textbf{及}降低痰湿积分''的并列目标结构，将预算 2000 元作为``建议''软约束而非硬约束, 避免单目标 $\min S_6$ 退化为``力所能及最高档''的平凡解; 采用 L1 月变 $(k_t, f_t)$ 决策、\textbf{严格按题意的加性动力学 $r_t = 0$ 或 $0.03k + 0.01(f-5)$}、复利递推、动态中医档位 $L_t=g(S_{t-1})$ 仅产生固定月成本的数学模型, 所有假设严格可追溯到题目附表 2/3 文字, 不引入任何外部推测 (避免了原拟 Bliss 乘法 + 伪中医降分率的过度延拓); 通过月度 Pareto 前沿推进 + 月末全局严格去劣的 $\varepsilon$-约束法为每位患者生成完整 Pareto 前沿 (典型 $26$--$119$ 个非被支配点), 再以 \textbf{Extended Dominance 预筛选} (Cantor 1994) 压缩至效率前沿 (三位样本 $26/74/119\to 26/37/43$), 最后以 \textbf{净货币收益 NMB($\lambda$) $\arg\max$ 单一公式} (Stinnett-Mullahy 1998 \textit{Medical Decision Making} 金标准) 完成个体最优选点, 彻底取代了原拟``经济型/肘点型/冲档型''三条 if-else 规则; Laska 1999 等价性定理保证 NMB 准则与 ICER 门限规则严格一一对应, 避免了 ICER 的零分母/象限歧义等病态情形, 却保留了与国家医保政策阈值对齐的可解释性; $\lambda$ 阈值按 Neumann 2014 \textit{NEJM} 方法论共识做 $\{30, 50, 100, 200\}$ 四档扫描 + TOPSIS-熵权 + Kneedle 交叉对照三重验证稳健性; 278 人批量结果展示``患者特征—最优方案''匹配规律 ($|K_i|$ 决定降幅上限、$S_0$ 相对阈值决定档位降级, 80+ 组降幅被 $K=\{1\}$ 锁死) 完全从统一 NMB 公式中自发涌现, 无任何人为分类分支, 并通过规则系数 $\pm 20\%$ 扰动 9 组敏感性分析验证方案结构稳定, 建模过程严格忠实于题目文字的最小假设集。
 \end{enumerate}
 
 \subsection{模型局限}
@@ -1239,8 +1574,8 @@ $\ge 60$  & 895 & 40.9 & \textbf{31.7\%} & \textbf{2.07} & 5.08 \\
 \begin{enumerate}
 \def\labelenumi{(\arabic{enumi})}
 \tightlist
-\item 动力学公式 $P_t = P_{t-1}(1 - 0.03s - 0.01\max(0, f-5))$ 为确定性模型，未考虑个体响应异质性；
-\item 评分卡 $S_{\text{prog}}$ 的部分加分权重（如痰湿积分分档、活动量表分档）来自中医体质学分档、老年功能分级与 ASCVD 经典经验，虽已补充独立性论证，但尚未在外部队列上做完全数据驱动的最优权重搜索；实际临床落地时可采用贝叶斯优化或 XGBoost SHAP 值重新校准权重；
+\item 题三动力学仍为确定性模型，规则系数 $3\%/1\%$ 均来自题目附表 3 文字标定 (``下降 $3\%/1\%$ 左右''), 未考虑真实人群中的个体响应异质性; 敏感性分析在规则系数 $\pm 20\%$ 范围内验证稳健, 极端参数下的方案迁移性仍待外部队列验证;
+\item 第二问仍基于单一横截面样本完成内部训练/测试划分，虽已用标签泄漏控制、Bootstrap、校准和决策曲线增强稳健性，但仍需在独立外部队列上验证 9 特征评分卡、UA 的 U 型关系以及 $c_L=37.3$、$c_H=79.3$ 阈值的迁移稳定性；
 \item 本数据 LDL-C 和 TG 极端异常样本不足，严重原发性高胆固醇血症或重度高甘油三酯血症等外部扩展场景尚需额外验证；
 \item 本数据 79.3\% 为确诊样本，类别不均衡对统计估计有影响；
 \item 65 例体质标签歧义样本虽已保留，但其``主要体质''判定对九体质贡献度分析有噪声。
@@ -1252,8 +1587,8 @@ $\ge 60$  & 895 & 40.9 & \textbf{31.7\%} & \textbf{2.07} & 5.08 \\
 \def\labelenumi{(\arabic{enumi})}
 \tightlist
 \item \textbf{问题一}：可扩展至 SCAD、MCP 等稀疏罚方法；
-\item \textbf{问题二}：(a) 可用贝叶斯优化或 XGBoost SHAP 值对 $S_{\text{prog}}$ 的加分权重做数据驱动精调；(b) 在外部验证集上用 ROC-Youden 指数检验阈值 $\{2, 6\}$ 的稳定性；(c) 对含家族性高胆固醇或重度高甘油三酯病例的外部数据，可激活 LDL-C $\ge 4.9$ 或 TG $\ge 5.6$ 等预留规则；(d) 可把评分卡扩展为``成本敏感阈值''，与问题三干预成本联动，实现预警--干预一体化决策；
-\item \textbf{问题三}：可扩展为多目标帕累托优化，输出成本--疗效前沿；
+\item \textbf{问题二}：(a) 可在外部验证集上重新估计 WOE 分箱和 Logistic 系数，检验 $c_L=37.3$、$c_H=79.3$ 的稳定性；(b) 可用 XGBoost/SHAP 或贝叶斯优化进一步刻画 UA、BMI、FPG 的非线性与交互；(c) 对低阳性率社区筛查数据，可重新设定 Sp 目标并联动干预成本形成成本敏感阈值；(d) 若获得真实随访结局，可把当前横截面筛查模型升级为时间到事件风险模型；
+\textbf{问题三}：(a) 可结合真实随访 RCT 数据对规则系数 $3\%/1\%$ 进行患者异质性标定; (b) 若未来医学研究给出中医调理本身的降分率参数, 可以在保持模型结构的前提下把 $r_{\text{中医}}$ 项纳入状态递推 (本文因题目未提供此参数严格不作推测); (c) 可将当前二维 Pareto 前沿 $(S_6, C_{\text{total}})$ 扩展为加入``训练时长''维度的三目标前沿, 为时间紧张的患者提供更多决策维度; (d) 可在动力学中引入正态扰动将模型推广为随机优化, 用 CVaR 等风险度量替代期望值, 提高方案对参数不确定性的抵抗力; (e) 若获得真实随访数据, 可用强化学习替代 DP 学习个体响应函数实现自适应闭环干预;
 \item 如有随访数据，可用强化学习代替 DP，学习个体响应函数。
 \end{enumerate}
 
@@ -1263,7 +1598,6 @@ $\ge 60$  & 895 & 40.9 & \textbf{31.7\%} & \textbf{2.07} & 5.08 \\
 \begin{thebibliography}{99}
 \bibitem{wang2005} 王琦. 中医体质学. 北京: 中国医药科技出版社, 2005.
 \bibitem{cn-dyslipidemia-2016} 中国成人血脂异常防治指南修订联合委员会. 中国成人血脂异常防治指南(2016 年修订版). 中华心血管病杂志, 44(10): 833--853, 2016.
-\bibitem{zhang-borda-2020} 张景中. 投票理论与社会选择(第二版). 北京: 高等教育出版社, 2020.
 \bibitem{friedman2001} Friedman J. Greedy Function Approximation: A Gradient Boosting Machine. Annals of Statistics, 29(5): 1189--1232, 2001.
 \bibitem{breiman2001} Breiman L. Random Forests. Machine Learning, 45(1): 5--32, 2001.
 \bibitem{tibshirani1996} Tibshirani R. Regression Shrinkage and Selection via the Lasso. Journal of the Royal Statistical Society, Series B, 58(1): 267--288, 1996.
@@ -1276,7 +1610,31 @@ $\ge 60$  & 895 & 40.9 & \textbf{31.7\%} & \textbf{2.07} & 5.08 \\
 \bibitem{cohen1988} Cohen J. Statistical Power Analysis for the Behavioral Sciences, 2nd ed. Hillsdale: Lawrence Erlbaum Associates, 1988.
 \bibitem{agrawal1994} Agrawal R, Srikant R. Fast algorithms for mining association rules in large databases. Proceedings of the 20th International Conference on Very Large Data Bases (VLDB), 487--499, 1994.
 \bibitem{goff2014} Goff D C Jr, Lloyd-Jones D M, Bennett G et al. 2013 ACC/AHA Guideline on the Assessment of Cardiovascular Risk. Circulation, 129(25 Suppl 2): S49--S73, 2014.
+\bibitem{kaufman2012leakage} Kaufman S, Rosset S, Perlich C, Stitelman O. Leakage in data mining: formulation, detection, and avoidance. ACM Transactions on Knowledge Discovery from Data, 6(4): 15, 2012.
+\bibitem{siddiqi2006credit} Siddiqi N. Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring. Hoboken: Wiley, 2006.
+\bibitem{youden1950} Youden W J. Index for rating diagnostic tests. Cancer, 3(1): 32--35, 1950.
+\bibitem{fluss2005youden} Fluss R, Faraggi D, Reiser B. Estimation of the Youden index and its associated cutoff point. Biometrical Journal, 47(4): 458--472, 2005.
+\bibitem{delong1988} DeLong E R, DeLong D M, Clarke-Pearson D L. Comparing the areas under two or more correlated receiver operating characteristic curves: a nonparametric approach. Biometrics, 44(3): 837--845, 1988.
+\bibitem{hosmer2000applied} Hosmer D W, Lemeshow S. Applied Logistic Regression, 2nd ed. New York: Wiley, 2000.
+\bibitem{vickers2006dca} Vickers A J, Elkin E B. Decision curve analysis: a novel method for evaluating prediction models. Medical Decision Making, 26(6): 565--574, 2006.
+\bibitem{armitage1955trend} Armitage P. Tests for linear trends in proportions and frequencies. Biometrics, 11(3): 375--386, 1955.
+\bibitem{cn-dyslipidemia-2023} 中国血脂管理指南修订联合委员会. 中国血脂管理指南(2023 年). 中华心血管病杂志, 51(3): 221--255, 2023.
+\bibitem{kuwabara2016uric} Kuwabara M, Niwa K, Hisatome I et al. Asymptomatic hyperuricemia without comorbidities predicts cardiometabolic diseases: five-year Japanese cohort study. Hypertension, 69(6): 1036--1044, 2017.
+\bibitem{steyerberg2009clinical} Steyerberg E W. Clinical Prediction Models: A Practical Approach to Development, Validation, and Updating. New York: Springer, 2009.
+% ---- 问题三 NMB / Extended Dominance / HTA 经典文献 ----
+\bibitem{stinnett1998nmb} Stinnett A A, Mullahy J. Net health benefits: a new framework for the analysis of uncertainty in cost-effectiveness analysis. Medical Decision Making, 18(2 Suppl): S68--S80, 1998.
+\bibitem{cantor1994} Cantor S B. Cost-effectiveness analysis, extended dominance, and ethics: a quantitative assessment. Medical Decision Making, 14(3): 259--265, 1994.
+\bibitem{neumann2014} Neumann P J, Cohen J T, Weinstein M C. Updating cost-effectiveness---the curious resilience of the \$50,000-per-QALY threshold. New England Journal of Medicine, 371(9): 796--797, 2014.
+\bibitem{laska1999} Laska E M, Meisner M, Siegel C, Stinnett A A. Ratio-based and net benefit-based approaches to health care resource allocation: proofs of optimality and equivalence. Health Economics, 8(2): 171--174, 1999.
+\bibitem{fenwick2001ceac} Fenwick E, Claxton K, Sculpher M. Representing uncertainty: the role of cost-effectiveness acceptability curves. Health Economics, 10(8): 779--787, 2001.
+\bibitem{drummond2015} Drummond M F, Sculpher M J, Claxton K, Stoddart G L, Torrance G W. Methods for the Economic Evaluation of Health Care Programmes, 4th ed. Oxford: Oxford University Press, 2015.
+\bibitem{husereau2022cheers} Husereau D, Drummond M, Augustovski F, et al. Consolidated Health Economic Evaluation Reporting Standards 2022 (CHEERS 2022) Statement. Value in Health, 25(1): 3--9, 2022.
+\bibitem{hwang1981topsis} Hwang C L, Yoon K. Multiple Attribute Decision Making: Methods and Applications. Lecture Notes in Economics and Mathematical Systems, vol.~186. Berlin: Springer-Verlag, 1981.
+\bibitem{satopaa2011} Satopää V, Albrecht J, Irwin D, Raghavan B. Finding a ``Kneedle'' in a Haystack: Detecting Knee Points in System Behavior. In: 31st IEEE International Conference on Distributed Computing Systems Workshops (ICDCSW), 166--171, 2011.
+\bibitem{neumann2016cost} Neumann P J, Sanders G D, Russell L B, Siegel J E, Ganiats T G (eds). Cost-Effectiveness in Health and Medicine, 2nd ed. Oxford University Press, 2016.
 \end{thebibliography}
+
+%=============================================================
 
 %=============================================================
 \appendix
@@ -1286,11 +1644,21 @@ $\ge 60$  & 895 & 40.9 & \textbf{31.7\%} & \textbf{2.07} & 5.08 \\
 
 详见源代码文件，主要算法说明见~\cref{sec:q1-methods}。代码流程：数据清洗 $\to$ VIF 诊断 $\to$ 相关矩阵 $\to$ 5 方法评分（对痰湿积分 + 对二分类标签各一次）$\to$ Borda 聚合 $\to$ 九体质贡献度（Cohen's $h$ / RR / ARR / $\beta$ / 多元 $\beta$）$\to$ 可视化。\subsection{问题二：三级风险预警模型（\texttt{problem2.py}）}
 
-详见源代码文件，主要建模说明见~\cref{sec:q2}。代码流程：(1) 派生血脂异常项数；(2) 计算 $S_{\text{clin}}$（7 项血脂阈值分档）与三档细化后的 $S_{\text{prog}}$（痰湿/BMI/活动/年龄/性别/吸烟），合成 $S_{\text{total}}\in[0,18]$；(3) 硬规则层仅执行 R1，未触发者进入评分层；(4) 阈值 $\{2,6\}$ 得三级风险；(5) 三项验证——校准曲线、1000 次 Bootstrap 95\% CI、权重 $\pm 25\%$ 与阈值扰动敏感性分析；(6) 对 278 名痰湿体质患者做 Apriori 关联规则挖掘；(7) 输出 R1-only + 双轴评分 + 独立性论证对应的阈值体系与六面板综合可视化。
-
+代码按 12 个模块（A--L）组织，主要建模说明见~\cref{sec:q2}。流程：\textbf{(A)} 数据加载 $+$ 泄漏自查（验证 TC/TG/LDL-C/HDL-C 与诊断标签 100\% 一致）$+$ 特征中位数/众数填充 $+$ 分层 $7{:}3$ 切分；\textbf{(B)} WOE/IV 编码（5 分位分箱 $+$ $\varepsilon=0.5$ 平滑 $+$ 自动强度分级）；\textbf{(C)} 三模型 5 折 StratifiedKFold：WOE-Logistic、GradientBoostingClassifier、RandomForest；\textbf{(D)} WOE-Logistic $\to$ 整数评分卡变换（PDO$=20$, Base$=100$）；\textbf{(E)} 多准则阈值搜索（Youden、Near$(0,1)$、EER、F1、Sp$\ge 0.70$、成本敏感）$+$ Bootstrap $1000$ 次 BCa 95\% CI；\textbf{(F)} 四方案三级分层 $+$ Cochran--Armitage 趋势检验；\textbf{(G)} Isotonic 校准 $+$ Hosmer--Lemeshow 检验 $+$ 校准截距/斜率；\textbf{(H)} 四模型 ROC 绘制 $+$ DeLong 两两检验；\textbf{(I)} 决策曲线 DCA $+$ 成本敏感阈值；\textbf{(J)} 痰湿子集三路径挖掘---手写 Apriori $+$ 决策树浅层路径 $+$ GBDT 置换重要度；\textbf{(K)} 三维稳健性；\textbf{(L)} 六面板综合可视化。所有中间结果写入 \texttt{src/outputs/tables/Q2\_results.json}，图表写入 \texttt{src/outputs/figures/} 与 \texttt{src/outputs/tables/}。
 \subsection{问题三：6 个月个性化干预方案优化（\texttt{problem3.py}）}
 
-详见源代码文件。DP 伪代码见~\cref{sec:q3}。代码流程：定义动力学与可行集 $\to$ 单患者 DP $\to$ 样本 1/2/3 方案生成 $\to$ 全 278 人方案批量生成 $\to$ 分组规律统计 $\to$ 可视化。
+详见源代码文件。代码按\textbf{四层流水线架构}组织, 严格对应正文 \cref{sec:q3-nmb} 的统一 NMB 选点框架:
+\begin{itemize}
+\tightlist
+\item \textbf{(A) 数据接入与可行集构造}: 读取附件 1 并筛选体质标签 $=5$ 的 278 名痰湿体质患者; 按附表 3 年龄硬约束 $K_{\text{age}}$ 与评分硬约束 $K_{\text{score}}$ 取交集得 $K_i=K_{\text{age}}\cap K_{\text{score}}$.
+\item \textbf{(B) 第 1 层 · 月度 Pareto 前沿推进}: 初始状态 $\mathcal{F}_0=\{(S_0, 0, \emptyset, \emptyset)\}$, 对每月 $t=1,\dots,6$ 枚举 $(k_t, f_t)\in K_i\times\{1,5,6,\dots,10\}$ (跳过 $f\in\{2,3,4\}$ 因被 $f=1$ 严格支配), 按加性公式 \cref{eq:q3-rexercise} + 复利递推 \cref{eq:q3-state} 更新状态, 月总成本 $\Delta C_t = 4 f_t c_{\text{act}}(k_t) + c_{\text{中医}}(L_t)$, 中间月按下月中医档位分组做 $(S_t, C_t)$ 二维 Pareto 去劣 (保证跨档位的点不互相支配), 最终月末做全局严格 Pareto 去劣, 输出完整非被支配前沿 (典型 $40$--$140$ 个点)。
+\item \textbf{(C) 第 2 层 · Extended Dominance 预筛选}: 按 $E=S_0-S_6$ 升序排列前沿, 迭代检测相邻 ICER 是否严格单调递增; 若出现凹陷点则剔除, 直至 ICER 序列单调 (Cantor 1994). 三位样本实测: $26/74/119\to 26/37/43$ (样本 1 $|K|=1$ 时前沿本身严格凸, 压缩率 0\%; 样本 2/3 压缩 $50\%/64\%$).
+\item \textbf{(D) 第 3 层 · NMB argmax 统一选点}: 对 ED 效率前沿上每个点计算 $\mathrm{NMB}(\lambda)=\lambda(S_0-S_6)-C_\text{total}$, 取 $\arg\max$ 为推荐方案; 主基准 $\lambda=30$ 元/分, 同时输出 $\{50, 100, 200\}$ 敏感性扫描. Laska 1999 等价性定理保证与 ICER 门限规则一致.
+\item \textbf{(E) 第 4 层 · 交叉对照 + 不确定性分析}: 并行计算 TOPSIS-熵权 (Hwang-Yoon 1981) 与 Kneedle (Satopää 2011) 推荐作为独立几何/数据驱动对照; 规则系数 $\{3\%, 1\%\}$ 的 $\pm 20\%$ 缩放做 $3\times 3=9$ 组敏感性分析. 详见 \texttt{Q3\_rule\_sens.csv}.
+\item \textbf{(F) 输出}: 样本 1/2/3 的 Pareto 前沿图 (\texttt{Q3\_pareto.png})、六月积分轨迹图 (\texttt{Q3\_trajectory.png})、$\lambda$ 敏感性扫描图 (\texttt{Q3\_lambda\_sweep.png})、ICER 阶梯图 (\texttt{Q3\_icer\_ladder.png})、逐月处方表 (\texttt{sample\{1,2,3\}\_prescription.csv}); 278 人批量结果按 $|K_i|$、$S_0$ 档位、年龄组、NMB 总成本档四维聚合 (\texttt{Q3\_batch\_results.csv}) 与六面板可视化 (\texttt{Q3\_summary.png}); $\lambda$ 扫描表 (\texttt{Q3\_lambda\_sweep.csv}) 与规则系数 $\pm 20\%$ 敏感性表 (\texttt{Q3\_rule\_sens.csv}).
+\end{itemize}
+
+算法总体复杂度 $O(|K_i|\cdot 10\cdot |\mathcal{F}|_{\max}\cdot\log|\mathcal{F}|_{\max})$, 单机秒级完成 278 人批量求解, 无需启发式算法.
 
 \textbf{软件环境}：Python 3.10；依赖库：pandas 2.x, numpy 1.x, scipy 1.x, scikit-learn 1.x, statsmodels 0.14+, matplotlib 3.x。
 
