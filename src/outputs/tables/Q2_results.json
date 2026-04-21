@@ -595,6 +595,38 @@
     "CA_Z": 8.8788,
     "CA_p": 0.0
   },
+  "two_layer_fusion_full_dataset": {
+    "cL": 37.3038,
+    "cH": 79.3038,
+    "layer1_n": 793,
+    "layer2_counts": {
+      "低": 151,
+      "中": 33,
+      "高": 23
+    },
+    "strata": [
+      {
+        "level": "低",
+        "n": 151,
+        "pos_rate": 0.0,
+        "NNT": null
+      },
+      {
+        "level": "中",
+        "n": 33,
+        "pos_rate": 0.0,
+        "NNT": null
+      },
+      {
+        "level": "高",
+        "n": 816,
+        "pos_rate": 0.9718,
+        "NNT": 1.03
+      }
+    ],
+    "CA_Z": 28.6226,
+    "CA_p": 0.0
+  },
   "stratification_variants_on_prob": {
     "A": {
       "cL": 0.4618,

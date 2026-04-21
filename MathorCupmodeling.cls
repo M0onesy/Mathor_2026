@@ -54,8 +54,8 @@
 \rule{\textwidth}{1.5pt}\\
 \phantom{1}\\
 \phantom{1}\hfill{\zihao{4}\@timu}\hfill\phantom{1}\\
-\phantom{1}\hfill{\label{zy}摘~~要}\hfill\phantom{1}\pdfbookmark[1]{摘要}{zy}\par%
-}{\\\phantom{1}\\关键词：\@keyword\thispagestyle{empty}\setcounter{page}{-1}
+\phantom{1}\hfill{\label{zy}摘~~要}\hfill\phantom{1}\pdfbookmark[1]{\textbf{摘要}}{zy}\par%
+}{\\\phantom{1}\\ \textbf{关键词：}\@keyword\thispagestyle{empty}\setcounter{page}{-1}
 \newpage\thispagestyle{empty}
 }
 

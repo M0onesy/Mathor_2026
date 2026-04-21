@@ -96,10 +96,13 @@ def module_A_preprocess(path=DATA_PATH):
     n_phlegm = int((df["tizhi"] == 5).sum())
     print(f"[A] n={len(df)}, 阳性率={pos_rate:.4f}, "
           f"泄漏一致率={consist:.4f}, 痰湿体质 n={n_phlegm}")
+    print(f"[A] Layer-1 血脂异常人数={int(abn.sum())} "
+          f"(覆盖率 {abn.sum()/len(df):.2%})")
 
     X = df[FEATURES_ALL].copy()
     y = df["label"].astype(int).values
     tizhi = df["tizhi"].astype(int).values
+    abn_full = abn.values.astype(int)
 
     X[FEATURES_CONT] = SimpleImputer(strategy="median") \
         .fit_transform(X[FEATURES_CONT])
@@ -107,12 +110,14 @@ def module_A_preprocess(path=DATA_PATH):
         .fit_transform(X[FEATURES_ORD + FEATURES_CAT])
     X = X.astype(float)
 
-    Xtr, Xte, ytr, yte, ttr, tte = train_test_split(
-        X, y, tizhi, test_size=0.30, stratify=y, random_state=RNG)
+    Xtr, Xte, ytr, yte, ttr, tte, abn_tr, abn_te = train_test_split(
+        X, y, tizhi, abn_full,
+        test_size=0.30, stratify=y, random_state=RNG)
 
-    return dict(X_raw=X, y=y, tizhi=tizhi,
+    return dict(X_raw=X, y=y, tizhi=tizhi, abn_full=abn_full,
                 Xtr_raw=Xtr, Xte_raw=Xte,
                 ytr=ytr, yte=yte, ttr=ttr, tte=tte,
+                abn_tr=abn_tr, abn_te=abn_te,
                 leak_rate=consist, pos_rate=pos_rate, n_phlegm=n_phlegm)
 
 
@@ -480,6 +485,39 @@ def module_F_stratify(y, p, cH, scheme="A", sp_target=0.70):
     return dict(scheme=scheme,
                 cL=round(float(cL), 4), cH=round(float(cH), 4),
                 strata=strata, CA_Z=round(Z, 4), CA_p=pv, level=level)
+
+
+def module_F_twolayer(y, score, abn, cL, cH):
+    """
+    两层融合分层:
+      Layer 1 硬规则: abn=1 (血脂四项任一异常) → 直接判定为 高风险
+      Layer 2 评分卡: abn=0 残余样本按 score 与阈值 {cL,cH} 分层 低/中/高
+      融合: 低/中 来自 Layer 2; 高 = Layer 1 全部 ∪ Layer 2 高
+    """
+    y = np.asarray(y); score = np.asarray(score); abn = np.asarray(abn).astype(int)
+    # Layer 2 评分分层 (仅 abn=0 时起效)
+    level_l2 = np.where(score < cL, 0, np.where(score < cH, 1, 2))
+    # 融合: abn=1 全部 → 高 (level=2)
+    final_level = np.where(abn == 1, 2, level_l2)
+    strata = []
+    for k, name in enumerate(["低", "中", "高"]):
+        mk = (final_level == k)
+        n_ = int(mk.sum())
+        pr = float(y[mk].mean()) if n_ > 0 else None
+        strata.append(dict(
+            level=name, n=n_,
+            pos_rate=round(pr, 4) if pr is not None else None,
+            NNT=round(1.0 / pr, 2) if (pr and pr > 0) else None,
+        ))
+    layer1_n = int((abn == 1).sum())
+    layer2_counts = {name: int(((abn == 0) & (level_l2 == k)).sum())
+                     for k, name in enumerate(["低", "中", "高"])}
+    Z, pv = cochran_armitage(y, final_level)
+    return dict(cL=round(float(cL), 4), cH=round(float(cH), 4),
+                strata=strata,
+                layer1_n=layer1_n,
+                layer2_counts=layer2_counts,
+                CA_Z=round(Z, 4), CA_p=pv, level=final_level)
 
 
 # =============================================================================
@@ -1096,11 +1134,28 @@ def main():
 
     strata_score_A = module_F_stratify(d["yte"], score_te,
                                         thr_on_score["Youden"], scheme="A")
-    print(f"\n[F] 主方案 A (基于评分卡分数):")
+    print(f"\n[F] 单层方案 A (基于评分卡分数, 仅测试集):")
     print(f"   cL={strata_score_A['cL']}  cH={strata_score_A['cH']}  "
           f"n={[s['n'] for s in strata_score_A['strata']]}  "
           f"pos={[s['pos_rate'] for s in strata_score_A['strata']]}")
     print(f"   CA Z={strata_score_A['CA_Z']}  p={strata_score_A['CA_p']:.2e}")
+
+    # ==========================================================
+    # 两层融合 (全数据集 1000 样本)
+    #   Layer 1: 血脂四项异常 → 高风险 (硬规则)
+    #   Layer 2: 残余样本按评分卡分层 (复用主方案阈值)
+    # ==========================================================
+    cL_fuse = strata_score_A["cL"]
+    cH_fuse = strata_score_A["cH"]
+    score_full = apply_scorecard(d["X_raw"], sc, woe_map, edges_map)
+    strata_twolayer = module_F_twolayer(
+        d["y"], score_full, d["abn_full"], cL_fuse, cH_fuse)
+    print(f"\n[F2] 两层融合 (全数据集 n={len(d['y'])}):")
+    print(f"   Layer1 硬规则捕获: {strata_twolayer['layer1_n']} 人")
+    print(f"   Layer2 评分分层: {strata_twolayer['layer2_counts']}")
+    print(f"   融合分层 n={[s['n'] for s in strata_twolayer['strata']]}, "
+          f"阳性率={[s['pos_rate'] for s in strata_twolayer['strata']]}")
+    print(f"   CA Z={strata_twolayer['CA_Z']}  p={strata_twolayer['CA_p']:.2e}")
 
     dca_cost = module_I_decision_curve(d["yte"], p_cal, C_FN=5, C_FP=1)
 
@@ -1153,6 +1208,13 @@ def main():
             "strata": strata_score_A["strata"],
             "CA_Z": strata_score_A["CA_Z"],
             "CA_p": strata_score_A["CA_p"]},
+        "two_layer_fusion_full_dataset": {
+            "cL": strata_twolayer["cL"], "cH": strata_twolayer["cH"],
+            "layer1_n": strata_twolayer["layer1_n"],
+            "layer2_counts": strata_twolayer["layer2_counts"],
+            "strata": strata_twolayer["strata"],
+            "CA_Z": strata_twolayer["CA_Z"],
+            "CA_p": strata_twolayer["CA_p"]},
         "stratification_variants_on_prob": {
             k: {"cL": v["cL"], "cH": v["cH"],
                 "n": [s["n"] for s in v["strata"]],

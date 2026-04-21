@@ -1,0 +1,9 @@
+﻿metric,value
+n_patients,278.0
+tau_max,1.5
+mean_S6,37.812186
+mean_total_cost,902.107914
+mean_drop_pct,36.69848
+mean_rms_df,0.800151
+share_rms_le_tau,1.0
+share_cost_le_budget_soft,1.0
